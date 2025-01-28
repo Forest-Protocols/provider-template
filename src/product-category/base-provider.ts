@@ -1,19 +1,15 @@
 import {
   addressSchema,
-  Agreement,
-  PipeError,
   PipeMethod,
   PipeResponseCode,
   validateBodyOrParams,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
-import { Resource, ResourceDetails } from "@/types";
+import { ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
 import { Address } from "viem";
-import { DetectResponse, SupportedLanguages, TranslateResponse } from "./types";
-import { Hex } from "viem";
 import { z } from "zod";
 import { validateBody } from "@/helpers";
 
@@ -69,7 +65,46 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      path: /languages,
      */
 
-    this.pipe!.route(PipeMethod.GET, "/languages", async (_req) => {
+    this.pipe.route(PipeMethod.GET, "/languages", async (req) => {
+      /**
+       * Validates the params/body of the request. If they are not valid
+       * request will reply back to the user with a validation error message
+       * and bad request code automatically.
+       */
+      const body = validateBodyOrParams(
+        req.body,
+        z.object({
+          /** ID of the resource. */
+          id: z.number(),
+
+          /** Product category address that the resource created in. */
+          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
+        }),
+      );
+
+      /**
+       * Retrieve the resource from the database.
+       *
+       * IMPORTANT NOTE:
+       * Inside your route handlers, you always need to use `req.requester` when
+       * you retrieve resource from the database. With that approach you can be
+       * sure that the requester is the owner of the resource (because otherwise the resource
+       * won't be found). Basically the authorization stuff. If you want to add more logic
+       * for the authorization (like call limiting etc.) you can do as well next to retrieving resource process.
+       */
+
+      const resource = await DB.getResource(
+        body.id,
+        req.requester,
+        body.pc as Address,
+      );
+
+      // If resource is not found or not active, throws a not found error.
+      // "Active" means; is the agreement still active on-chain?
+      if (!resource || !resource.isActive) {
+        throw new PipeErrorNotFound("Resource");
+      }
+
       return {
         code: PipeResponseCode.OK,
         body: {
@@ -88,13 +123,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * }
      */
 
-    this.pipe!.route(PipeMethod.POST, "/translate", async (req) => {
-      const paramsSchema = z.object({
-        from: z.string().optional(),
-        to: z.string().optional(),
-      });
-      const params = validateBody(req.params, paramsSchema);
-
+    this.pipe.route(PipeMethod.POST, "/translate", async (req) => {
       const bodySchema = z.object({
         id: z.number(),
         text: z.string(),
@@ -102,15 +131,15 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         to: z.string(),
         version: z.string().optional(),
         key: z.string().optional(),
+        pc: addressSchema,
       });
 
       const body = validateBody(req.body, bodySchema);
 
-      const agreementId = body.id;
-
       const resource = await DB.getResource(
-        agreementId,
+        body.id,
         req.requester,
+        body.pc as Address,
       );
 
       if (!resource || !resource?.isActive) {
@@ -119,8 +148,8 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
 
       const result = await this.translate({
         version: body.version,
-        from: body.from || params.from,
-        to: body.to || params.to,
+        from: body.from,
+        to: body.to,
         text: body.text,
         key: body.key,
       });
@@ -140,14 +169,24 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * text (required) : string -> The text that is going to be detected
      * }
      */
-    this.pipe!.route(PipeMethod.POST, "/detect", async (req) => {
-      if (!req.body?.text) {
-        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
-          message: "Missing required parameters",
-        });
+    this.pipe.route(PipeMethod.POST, "/detect", async (req) => {
+      const bodySchema = z.object({
+        id: z.number(),
+        text: z.string(),
+        pc: addressSchema,
+      });
+      const body = validateBody(req.body, bodySchema);
+      const resource = await DB.getResource(
+        body.id,
+        req.requester,
+        body.pc as Address,
+      );
+
+      if (!resource || !resource?.isActive) {
+        throw new PipeErrorNotFound("Resource");
       }
 
-      const result = await this.detect(req.body.text);
+      const result = await this.detect(body.text);
 
       // Return the response with the results.
       return {
