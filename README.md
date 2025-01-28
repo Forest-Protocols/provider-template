@@ -9,7 +9,7 @@ This product category aims to offer high quality translations from different lan
 |                               |                                   |
 | ----------------------------- | --------------------------------- |
 | Software Stack / Service Type | `Machine Translation`             |
-| Software Version (optional)   | `N/A`                               |
+| Software Version (optional)   | `N/A`                             |
 | PC Smart Contract Address     | `{SC Address}`                    |
 | PC Registration Date          | `{Date of Registration}`          |
 | PC Owner Website              | [link](https://{domain}/)         |
@@ -21,7 +21,6 @@ This product category aims to offer high quality translations from different lan
 Each Offer in this Product Category must include the following properties:
 |Name|Units|Description|
 |-|-|-|
-|CPU|`Cores`|CPU core the resource allowed to use|
 |API Version (optional)|`[v1, v2, v3]`|The version of the API requested by the client|
 |API Key (optional)|`[services generated API key]`|The version of the API requested by the client|
 |Region (optional, service endpoints)|`[Global(default), Americas, Asia Pacific, Europe eth.]`|The region from where the machine translation server will send translated text back.|
@@ -93,7 +92,7 @@ classDiagram
 	class YourProvider {
 
 	}
-	class BasePostgreSQLDatabaseProvider  {
+	class BaseMachineTranslationProvider   {
 		<<abstract class>>
 		+sqlQuery(Agreement agreement, Resource resource, string query)* Promise~PostgreSQLDatabaseDetails~
 		+resetCredentials(Agreement agreement, Resource resource)* Promise~PostgreSQLDatabaseDetails~
@@ -116,19 +115,13 @@ classDiagram
 		[fieldName: string]: any
 	}
 
-	class PostgreSQLDatabaseDetails {
+	class MachineTranslationDetails {
 		<<type or interface>>
-		Connection_String?: string;
-		Username?: string;
-		Password?: string;
-		Port?: string;
-		Database_Name?: string;
-		Hostname?: string;
 	}
 
-		BasePostgreSQLDatabaseProvider  <|--  AbstractProvider~PostgreSQLDatabaseDetails~  :  inherits
-	YourProvider  <|-- BasePostgreSQLDatabaseProvider : inherits and implements abstract methods
-	PostgreSQLDatabaseDetails  <|-- ResourceDetails : extends
+		BaseMachineTranslationProvider  <|--  AbstractProvider~MachineTranslationDetails~  :  inherits
+	YourProvider  <|-- BaseMachineTranslationProvider  : inherits and implements abstract methods
+	MachineTranslationDetails  <|-- ResourceDetails : extends
 ```
 
 ## Become a Validator [TODO]
