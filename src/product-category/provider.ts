@@ -56,7 +56,13 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
     throw new Error("Method not implemented.");
   }
 
-  async translate(options: { source?: string; target: string }): Promise<any> {
+  async translate(body: {
+    from?: string;
+    to?: string;
+    key?: string;
+    text?: string;
+    version?: string;
+  }): Promise<any> {
     /**
      * TODO: Implement the translation logic here.
      */

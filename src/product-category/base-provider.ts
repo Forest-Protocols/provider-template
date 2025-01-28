@@ -34,23 +34,23 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
   /**
    * Returns the list of languages supported by the provider.
    */
-  abstract languages(): SupportedLanguages;
+  abstract languages(): Promise<any>;
 
   /**
    * Translates the text from the source language to the target language.
-   * @param options Options for the translation
+   * @param body for the translation
    * @param agreement Agreement details
    * @param resource Resource details
    * @returns The translated text
    */
 
-  abstract translate(
-    options: {
-      source?: string;
-      target: string;
-    },
-    text: string,
-  ): TranslateResponse;
+  abstract translate(body: {
+    from?: string;
+    to?: string;
+    key?: string;
+    text: string;
+    version?: string;
+  }): Promise<any>;
   /**
    * Detects the language of the text.
    * @param text The text that needs to be detected
@@ -58,7 +58,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param resource Resource details
    * @returns The detected language
    **/
-  abstract detect(text: string): DetectResponse;
+  abstract detect(text: string): Promise<any>;
 
   async init(providerTag: string) {
     // Base class' `init` function must be called.
@@ -89,14 +89,22 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      */
 
     this.pipe!.route(PipeMethod.POST, "/translate", async (req) => {
-      const schema = z.object({
+      const paramsSchema = z.object({
+        from: z.string().optional(),
+        to: z.string().optional(),
+      });
+      const params = validateBody(req.params, paramsSchema);
+
+      const bodySchema = z.object({
         id: z.number(),
-        source: z.string().optional(),
-        target: z.string(),
         text: z.string(),
+        from: z.string().optional(),
+        to: z.string(),
+        version: z.string().optional(),
+        key: z.string().optional(),
       });
 
-      const body = validateBody(req.body, schema);
+      const body = validateBody(req.body, bodySchema);
 
       const agreementId = body.id;
 
@@ -109,13 +117,13 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         throw new PipeErrorNotFound("Resource");
       }
 
-      const result = await this.translate(
-        {
-          source: body.source,
-          target: body.target,
-        },
-        body.text,
-      );
+      const result = await this.translate({
+        version: body.version,
+        from: body.from || params.from,
+        to: body.to || params.to,
+        text: body.text,
+        key: body.key,
+      });
 
       return {
         code: PipeResponseCode.OK,
