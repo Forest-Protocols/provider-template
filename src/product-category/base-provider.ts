@@ -10,8 +10,15 @@ import { AbstractProvider } from "@/abstract/AbstractProvider";
 import { Resource, ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
-import { z } from "zod";
+
 import { Address } from "viem";
+import { SupportedLanguages } from "./types";
+import { Hex } from "viem";
+import { z } from "zod";
+import { validateBody } from "@/helpers";
+//import { Resource } from "@/database/schema";
+//import { LocalStorage } from "@/database/LocalStorage";
+//import { NotFound } from "@/errors/NotFound";
 
 /**
  * The details gathered by the provider from the resource source.
@@ -19,23 +26,16 @@ import { Address } from "viem";
  * @responsible Product Category Owner
  */
 
-export type SupportedLanguages = {
-  translation: {
-    [key: string]: {
-      name: string;
-      nativeName: string;
-      dir: string;
-    };
-  };
+export type MachineTranslationDetails = ResourceDetails & {
+  customerAddr: Hex;
+  type: string;
 };
-export type MachineTranslationDetails = ResourceDetails & {};
 
 /**
  * Base provider that defines what kind of actions needs to be implemented for the product category.
  * @responsible Product Category Owner
  */
 export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
-
   /**
    * Returns the list of languages supported by the provider.
    */
@@ -49,10 +49,21 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @returns The translated text
    */
 
-  abstract translate(options: {
-    source?: string;
-    target: string;
-  }): Promise<any>;
+  abstract translate(
+    options: {
+      source?: string;
+      target: string;
+    },
+    text: string,
+  ): Promise<
+    [
+      {
+        source: string;
+        target: string;
+        text: string;
+      },
+    ]
+  >;
 
   /**
    * Detects the language of the text.
@@ -96,26 +107,34 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * }
      */
     this.pipe!.route(PipeMethod.POST, "/translate", async (req) => {
-      if (!req.requester) {
-        throw new PipeError(PipeResponseCode.NOT_AUTHORIZED, {
-          message: "Unauthorized",
-        });
-      }
+      const schema = z.object({
+        id: z.number(),
+        source: z.string().optional(),
+        target: z.string(),
+        text: z.string(),
+      });
+      const body = validateBody(req.body, schema);
 
-      if (!req.body?.target || !req.body?.text) {
-        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
-          message: "Missing required parameters",
-        });
-      }
+      const agreementId = body.id;
+      const resource = await LocalStorage.instance.getResource(
+        agreementId,
+        req.requester,
+      );
 
-      //Again the same question should we call here an axios instance that communicate with e.g. client and get the translation from the provider
+      if (!resource || !resource?.isActive) {
+        throw new PipeErrorNotFound("Resource");
+      }
+      const result = await this.translate(
+        {
+          source: body.source,
+          target: body.target,
+        },
+        body.text,
+      );
       return {
         code: PipeResponseCode.OK,
         body: {
-          translation: await this.translate({
-            source: req.body.source,
-            target: req.body.target,
-          }),
+          result,
         },
       };
     });
