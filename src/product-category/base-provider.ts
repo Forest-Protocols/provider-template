@@ -18,18 +18,22 @@ import { Address } from "viem";
  * This is the "details" type of each resource and it is stored in the database.
  * @responsible Product Category Owner
  */
-export type ExampleProductDetails = ResourceDetails & {
-  Example_Detail: number;
-
-  /* A detail provided by the resource but won't be sent when the user requested it */
-  _examplePrivateDetailWontSentToUser: string;
-};
+export type MachineTranslationDetails = ResourceDetails & {};
 
 /**
  * Base provider that defines what kind of actions needs to be implemented for the product category.
  * @responsible Product Category Owner
  */
-export abstract class BaseExampleProductProvider extends AbstractProvider<ExampleProductDetails> {
+export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
+  abstract translate(
+    options: {
+      from: string;
+      to: string;
+    },
+    agreement: Agreement,
+    resource: Resource,
+  ): Promise<any>;
+
   /**
    * An example function that represents product specific action. This
    * function has to be implemented by all of the providers that wants

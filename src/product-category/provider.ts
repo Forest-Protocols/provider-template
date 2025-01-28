@@ -1,7 +1,7 @@
 import { Agreement } from "@forest-protocols/sdk";
 import {
-  BaseExampleProductProvider,
-  ExampleProductDetails,
+  BaseMachineTranslationProvider,
+  MachineTranslationDetails,
 } from "./base-provider";
 import { Resource, OfferDetails } from "@/types";
 
@@ -9,12 +9,30 @@ import { Resource, OfferDetails } from "@/types";
  * The main class that implements provider specific actions.
  * @responsible Provider
  */
-export class MainProviderImplementation extends BaseExampleProductProvider {
-  async doSomething(
+export class MachineTranslationProvider extends BaseMachineTranslationProvider {
+  async translate(
+    options: { from: string; to: string },
     agreement: Agreement,
     resource: Resource,
-    additionalArgument: string
-  ): Promise<{ stringResult: string; numberResult: number }> {
+  ): Promise<any> {
+    throw new Error("Method not implemented.");
+  }
+
+  async resetCredentials(
+    agreement: Agreement,
+    resource: Resource,
+  ): Promise<any> {
+    /**
+     * TODO: Implement how the credentials would be reset.
+     */
+    throw new Error("Method not implemented.");
+  }
+
+  async sqlQuery(
+    agreement: Agreement,
+    resource: Resource,
+    query: string,
+  ): Promise<any[]> {
     /**
      * TODO: Implement the logic to achieve purpose of this function.
      */
@@ -31,8 +49,8 @@ export class MainProviderImplementation extends BaseExampleProductProvider {
 
   async create(
     agreement: Agreement,
-    offer: OfferDetails
-  ): Promise<ExampleProductDetails> {
+    offer: OfferDetails,
+  ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be created.
      */
@@ -43,8 +61,8 @@ export class MainProviderImplementation extends BaseExampleProductProvider {
 
   async getDetails(
     agreement: Agreement,
-    resource: Resource
-  ): Promise<ExampleProductDetails> {
+    resource: Resource,
+  ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the details retrieved from the resource source.
      */
@@ -56,8 +74,8 @@ export class MainProviderImplementation extends BaseExampleProductProvider {
 
   async delete(
     agreement: Agreement,
-    resource: Resource
-  ): Promise<ExampleProductDetails> {
+    resource: Resource,
+  ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be deleted.
      */
