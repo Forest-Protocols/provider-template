@@ -18,6 +18,16 @@ import { Address } from "viem";
  * This is the "details" type of each resource and it is stored in the database.
  * @responsible Product Category Owner
  */
+
+export type SupportedLanguages = {
+  translation: {
+    [key: string]: {
+      name: string;
+      nativeName: string;
+      dir: string;
+    };
+  };
+};
 export type MachineTranslationDetails = ResourceDetails & {};
 
 /**
@@ -25,102 +35,117 @@ export type MachineTranslationDetails = ResourceDetails & {};
  * @responsible Product Category Owner
  */
 export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
-  abstract translate(
-    options: {
-      from: string;
-      to: string;
-    },
-    agreement: Agreement,
-    resource: Resource,
-  ): Promise<any>;
 
   /**
-   * An example function that represents product specific action. This
-   * function has to be implemented by all of the providers that wants
-   * to provide this product.
-   *
-   * The definition is up to product category owner. So if some of the
-   * arguments are not needed, they can be deleted. Like `agreement` or
-   * `resource` can be deleted if they are unnecessary for the implementation.
-   * @param agreement On-chain agreement data.
-   * @param resource Resource information stored in the database.
-   * @param additionalArgument Extra argument that related to the functionality (if needed).
+   * Returns the list of languages supported by the provider.
    */
-  abstract doSomething(
-    agreement: Agreement,
-    resource: Resource,
-    additionalArgument: string
-  ): Promise<{ stringResult: string; numberResult: number }>;
+  abstract languages(): Promise<SupportedLanguages[]>;
+
+  /**
+   * Translates the text from the source language to the target language.
+   * @param options Options for the translation
+   * @param agreement Agreement details
+   * @param resource Resource details
+   * @returns The translated text
+   */
+
+  abstract translate(options: {
+    source?: string;
+    target: string;
+  }): Promise<any>;
+
+  /**
+   * Detects the language of the text.
+   * @param text The text that needs to be detected
+   * @param agreement Agreement details
+   * @param resource Resource details
+   * @returns The detected language
+   **/
+  abstract detect(text: string): Promise<any>;
 
   async init(providerTag: string) {
     // Base class' `init` function must be called.
     await super.init(providerTag);
+    /**
+     method: GET,
+     path: /languages,
+     */
+    this.pipe!.route(PipeMethod.GET, "/languages", async (req) => {
+      if (req.params?.api_version) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "Invalid API version or missing API version in the request",
+        });
+      }
+      //check the resource
+      //Ask Muhamed if we should use a client to call the languages method, because it seems that this route should be called by the client and get the languages from the provider
+      return {
+        code: PipeResponseCode.OK,
+        body: {
+          languages: await this.languages(),
+        },
+      };
+    });
 
     /**
-     * If your product has some functionalities/interactions (like "doSomething" method)
-     * you can define "Pipe" routes to map the incoming requests from end users to the
-     * corresponding methods.
-     *
-     * Pipe is a simple abstraction layer that allow the participants to communicate
-     * HTTP like request-response style communication between them.
-     *
-     * Take a look at the example below:
+     * method: POST
+     * path: /translate
+     * body: {
+     * source (optional) : string -> The source language
+     * target (required) : string -> The target language
+     * text (required) : string -> The text that is going to be translated
+     * }
      */
-
-    /** Calls "doSomething" method. */
-    this.pipe.route(PipeMethod.GET, "/do-something", async (req) => {
-      /**
-       * Validates the params/body of the request. If they are not valid
-       * request will reply back to the user with a validation error message
-       * and bad request code automatically.
-       */
-      const body = validateBodyOrParams(
-        req.body,
-        z.object({
-          /** ID of the resource. */
-          id: z.number(),
-
-          /** Product category address that the resource created in. */
-          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
-
-          /** Additional argument for the method. */
-          argument: z.string(),
-        })
-      );
-
-      /**
-       * Retrieve the resource from the database.
-       *
-       * IMPORTANT NOTE:
-       * Inside your route handlers, you always need to use `req.requester` when
-       * you retrieve resource from the database. With that approach you can be
-       * sure that the requester is the owner of the resource (because otherwise the resource
-       * won't be found). Basically the authorization stuff. If you want to add more logic
-       * for the authorization (like call limiting etc.) you can do as well next to retrieving resource process.
-       */
-
-      const resource = await DB.getResource(
-        body.id,
-        req.requester,
-        body.pc as Address
-      );
-
-      // If resource is not found or not active, throws a not found error.
-      // "Active" means; is the agreement still active on-chain?
-      if (!resource || !resource.isActive) {
-        throw new PipeErrorNotFound("Resource");
+    this.pipe!.route(PipeMethod.POST, "/translate", async (req) => {
+      if (!req.requester) {
+        throw new PipeError(PipeResponseCode.NOT_AUTHORIZED, {
+          message: "Unauthorized",
+        });
       }
 
-      const pc = this.productCategories[body.pc]; // Product category client.
-      const agreement = await pc.getAgreement(resource.id); // Retrieve the agreement details from chain
+      if (!req.body?.target || !req.body?.text) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "Missing required parameters",
+        });
+      }
 
-      // Call the actual method and store the results of it.
-      const result = await this.doSomething(agreement, resource, body.argument);
+      //Again the same question should we call here an axios instance that communicate with e.g. client and get the translation from the provider
+      return {
+        code: PipeResponseCode.OK,
+        body: {
+          translation: await this.translate({
+            source: req.body.source,
+            target: req.body.target,
+          }),
+        },
+      };
+    });
+
+    /**
+     * method: POST
+     * path: /detect
+     * body: {
+     * text (required) : string -> The text that is going to be detected
+     * }
+     */
+    this.pipe!.route(PipeMethod.POST, "/detect", async (req) => {
+      if (!req.requester) {
+        throw new PipeError(PipeResponseCode.NOT_AUTHORIZED, {
+          message: "Unauthorized",
+        });
+      }
+
+      if (!req.body?.text) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "Missing required parameters",
+        });
+      }
 
       // Return the response with the results.
       return {
         code: PipeResponseCode.OK,
-        body: result,
+        body: {
+          detected: await this.detect(req.body.text),
+        },
       };
     });
   }

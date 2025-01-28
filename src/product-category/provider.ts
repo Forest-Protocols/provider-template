@@ -10,43 +10,6 @@ import { Resource, OfferDetails } from "@/types";
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
-  async translate(
-    options: { from: string; to: string },
-    agreement: Agreement,
-    resource: Resource,
-  ): Promise<any> {
-    throw new Error("Method not implemented.");
-  }
-
-  async resetCredentials(
-    agreement: Agreement,
-    resource: Resource,
-  ): Promise<any> {
-    /**
-     * TODO: Implement how the credentials would be reset.
-     */
-    throw new Error("Method not implemented.");
-  }
-
-  async sqlQuery(
-    agreement: Agreement,
-    resource: Resource,
-    query: string,
-  ): Promise<any[]> {
-    /**
-     * TODO: Implement the logic to achieve purpose of this function.
-     */
-
-    // An example;
-
-    // Some important logic....
-
-    return {
-      numberResult: agreement.id,
-      stringResult: `${resource.name}-${additionalArgument}`,
-    };
-  }
-
   async create(
     agreement: Agreement,
     offer: OfferDetails,
@@ -82,6 +45,29 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
 
     // If there is no additional action need for the deletion, you can
     // just leave this method as empty.
+    throw new Error("Method not implemented.");
+  }
+
+  async languages(): Promise<any> {
+    /**
+     * TODO: Implement the languages logic here.
+     * This method should return the list of languages supported by the provider.
+     */
+    throw new Error("Method not implemented.");
+  }
+
+  async translate(options: { source?: string; target: string }): Promise<any> {
+    /**
+     * TODO: Implement the translation logic here.
+     */
+    throw new Error("Method not implemented.");
+  }
+
+  async detect(text: string): Promise<any> {
+    /**
+     * TODO: Implement the detect logic here.
+     * This method should return the detected language of the text.
+     */
     throw new Error("Method not implemented.");
   }
 }
