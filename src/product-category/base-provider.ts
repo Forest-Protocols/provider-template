@@ -23,10 +23,7 @@ import { validateBody } from "@/helpers";
  * @responsible Product Category Owner
  */
 
-export type MachineTranslationDetails = ResourceDetails & {
-  customerAddr: Hex;
-  type: string;
-};
+export type MachineTranslationDetails = ResourceDetails & {};
 
 /**
  * Base provider that defines what kind of actions needs to be implemented for the product category.

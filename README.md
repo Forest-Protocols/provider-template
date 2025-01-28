@@ -2,7 +2,7 @@
 
 ## Description
 
-This product category aims to offer high quality translations from different languages pairs
+This product category aims to offer high quality translations from different languages pairs with basic and widely spreaded methods as detect, translated and get a list of supported languages
 
 ## Basic Info
 
@@ -21,8 +21,6 @@ This product category aims to offer high quality translations from different lan
 Each Offer in this Product Category must include the following properties:
 |Name|Units|Description|
 |-|-|-|
-|API Version (optional)|`[v1, v2, v3]`|The version of the API requested by the client|
-|API Key (optional)|`[services generated API key]`|The version of the API requested by the client|
 |Region (optional, service endpoints)|`[Global(default), Americas, Asia Pacific, Europe eth.]`|The region from where the machine translation server will send translated text back.|
 
 ## Configuration Parameters [TODO]
@@ -93,9 +91,11 @@ classDiagram
 
 	}
 	class BaseMachineTranslationProvider   {
-		<<abstract class>>
-		+sqlQuery(Agreement agreement, Resource resource, string query)* Promise~PostgreSQLDatabaseDetails~
-		+resetCredentials(Agreement agreement, Resource resource)* Promise~PostgreSQLDatabaseDetails~
+
+        <<abstract class>>
+        +abstract languages(): SupportedLanguages;
+        +abstract translate( options: { source?: string; target: string; }, text: string,): TranslateResponse~
+        +abstract detect(text: string): DetectResponse~
 	}
 	class  AbstractProvider~DetailsType=ResourceDetails~  {
 		<<abstract class>>
@@ -104,9 +104,9 @@ classDiagram
 		marketplace: Marketplace
 
 		+init(providerTag: string) void
-		+create(agreement: Agreement, offer: DbOffer)* Promise~DetailsType~
-		+getDetails(agreement: Agreement, resource: Resource)* Promise~DetailsType~
-		+delete(agreement: Agreement, resource: Resource)* Promise~DetailsType~
+		+abstract create(agreement: Agreement, offer: DbOffer)* Promise~DetailsType~
+		+abstract getDetails(agreement: Agreement, resource: Resource)* Promise~DetailsType~
+		+abstract delete(agreement: Agreement, resource: Resource)* Promise~DetailsType~
 	}
 
 	class ResourceDetails {
