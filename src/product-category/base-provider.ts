@@ -16,9 +16,6 @@ import { SupportedLanguages } from "./types";
 import { Hex } from "viem";
 import { z } from "zod";
 import { validateBody } from "@/helpers";
-//import { Resource } from "@/database/schema";
-//import { LocalStorage } from "@/database/LocalStorage";
-//import { NotFound } from "@/errors/NotFound";
 
 /**
  * The details gathered by the provider from the resource source.
@@ -35,6 +32,7 @@ export type MachineTranslationDetails = ResourceDetails & {
  * Base provider that defines what kind of actions needs to be implemented for the product category.
  * @responsible Product Category Owner
  */
+
 export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
   /**
    * Returns the list of languages supported by the provider.
@@ -72,23 +70,18 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param resource Resource details
    * @returns The detected language
    **/
-  abstract detect(text: string): Promise<any>;
+  abstract detect(text: string): Promise<{ language: string }>;
 
   async init(providerTag: string) {
     // Base class' `init` function must be called.
     await super.init(providerTag);
+
     /**
      method: GET,
      path: /languages,
      */
-    this.pipe!.route(PipeMethod.GET, "/languages", async (req) => {
-      if (req.params?.api_version) {
-        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
-          message: "Invalid API version or missing API version in the request",
-        });
-      }
-      //check the resource
-      //Ask Muhamed if we should use a client to call the languages method, because it seems that this route should be called by the client and get the languages from the provider
+
+    this.pipe!.route(PipeMethod.GET, "/languages", async (_req) => {
       return {
         code: PipeResponseCode.OK,
         body: {
@@ -113,9 +106,11 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         target: z.string(),
         text: z.string(),
       });
+
       const body = validateBody(req.body, schema);
 
       const agreementId = body.id;
+
       const resource = await LocalStorage.instance.getResource(
         agreementId,
         req.requester,
@@ -124,6 +119,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       if (!resource || !resource?.isActive) {
         throw new PipeErrorNotFound("Resource");
       }
+
       const result = await this.translate(
         {
           source: body.source,
@@ -131,6 +127,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         },
         body.text,
       );
+
       return {
         code: PipeResponseCode.OK,
         body: {
@@ -147,23 +144,18 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * }
      */
     this.pipe!.route(PipeMethod.POST, "/detect", async (req) => {
-      if (!req.requester) {
-        throw new PipeError(PipeResponseCode.NOT_AUTHORIZED, {
-          message: "Unauthorized",
-        });
-      }
-
       if (!req.body?.text) {
         throw new PipeError(PipeResponseCode.BAD_REQUEST, {
           message: "Missing required parameters",
         });
       }
+      const result = await this.detect(req.body.text);
 
       // Return the response with the results.
       return {
         code: PipeResponseCode.OK,
         body: {
-          detected: await this.detect(req.body.text),
+          result,
         },
       };
     });

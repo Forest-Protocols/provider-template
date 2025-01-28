@@ -63,7 +63,7 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
     throw new Error("Method not implemented.");
   }
 
-  async detect(text: string): Promise<any> {
+  async detect(text: string): Promise<{ language: string }> {
     /**
      * TODO: Implement the detect logic here.
      * This method should return the detected language of the text.
