@@ -12,7 +12,7 @@ import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
 import { Address } from "viem";
-import { SupportedLanguages } from "./types";
+import { DetectResponse, SupportedLanguages, TranslateResponse } from "./types";
 import { Hex } from "viem";
 import { z } from "zod";
 import { validateBody } from "@/helpers";
@@ -37,7 +37,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
   /**
    * Returns the list of languages supported by the provider.
    */
-  abstract languages(): Promise<SupportedLanguages[]>;
+  abstract languages(): SupportedLanguages;
 
   /**
    * Translates the text from the source language to the target language.
@@ -53,16 +53,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       target: string;
     },
     text: string,
-  ): Promise<
-    [
-      {
-        source: string;
-        target: string;
-        text: string;
-      },
-    ]
-  >;
-
+  ): TranslateResponse;
   /**
    * Detects the language of the text.
    * @param text The text that needs to be detected
@@ -70,7 +61,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param resource Resource details
    * @returns The detected language
    **/
-  abstract detect(text: string): Promise<{ language: string }>;
+  abstract detect(text: string): DetectResponse;
 
   async init(providerTag: string) {
     // Base class' `init` function must be called.
@@ -99,6 +90,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * text (required) : string -> The text that is going to be translated
      * }
      */
+
     this.pipe!.route(PipeMethod.POST, "/translate", async (req) => {
       const schema = z.object({
         id: z.number(),
@@ -111,7 +103,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
 
       const agreementId = body.id;
 
-      const resource = await LocalStorage.instance.getResource(
+      const resource = await DB.getResource(
         agreementId,
         req.requester,
       );
@@ -149,6 +141,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
           message: "Missing required parameters",
         });
       }
+
       const result = await this.detect(req.body.text);
 
       // Return the response with the results.
