@@ -6,23 +6,16 @@
   /* Product category that this offer made in */
   "productCategory": "0x0000000000000000000000000000000000000000",
 
-  "deploymentParams": {
-    "region": "eu-west-1",
-    "instance-type": "e2-m1"
-  },
+  "deploymentParams": {},
 
   /* Details of the offer */
   "details": {
-    "name": "Europe Fast Example Product",
+    "name": "Machine Translation API Service",
     "resourceParams": [
       {
-        "name": "RAM",
-        "value": 4
+        "name": "API Call Limit",
+        "value": 1000,
       },
-      {
-        "name": "CPU",
-        "value": 2
-      }
-    ]
-  }
+    ],
+  },
 }

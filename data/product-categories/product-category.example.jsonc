@@ -6,25 +6,10 @@
   /* Smart contract address of the product category */
   "address": "0x0000000000000000000000000000000000000000",
   "details": {
-    "name": "PostgreSQL",
-    "softwareStack": "PostgreSQL",
-    "version": "16",
+    "name": "Machine Translation",
+    "serviceType": "Machine Translation Models",
+    "version": "",
     "tests": [],
-    "resourceParams": [
-      {
-        "name": "RAM",
-        "unit": "GB",
-        "isFilterable": true,
-        "priority": 10,
-        "isPrimary": true
-      },
-      {
-        "name": "CPU",
-        "unit": "Cores",
-        "isFilterable": true,
-        "priority": 20,
-        "isPrimary": true
-      }
-    ]
-  }
+    "resourceParams": [],
+  },
 }

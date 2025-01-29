@@ -10,6 +10,15 @@ import { Resource, OfferDetails } from "@/types";
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
+  async checkCallLimit(resource: Resource, offer: OfferDetails): Promise<any> {
+    /**
+     * TODO: Implement how the resource will be created.
+     */
+    // If there is no additional action need for the deletion, you can
+    // just leave this method as empty.
+    throw new Error("Method not implemented.");
+  }
+
   async create(
     agreement: Agreement,
     offer: OfferDetails,

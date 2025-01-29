@@ -5,7 +5,7 @@ import {
   validateBodyOrParams,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
-import { ResourceDetails } from "@/types";
+import { OfferDetails, Resource, ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
@@ -19,7 +19,9 @@ import { validateBody } from "@/helpers";
  * @responsible Product Category Owner
  */
 
-export type MachineTranslationDetails = ResourceDetails & {};
+export type MachineTranslationDetails = ResourceDetails & {
+  _apiCallCount: number;
+};
 
 /**
  * Base provider that defines what kind of actions needs to be implemented for the product category.
@@ -27,6 +29,16 @@ export type MachineTranslationDetails = ResourceDetails & {};
  */
 
 export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
+  /**
+   * Checks if the resource still has limit to call query API.
+   * @param resource Resource record of the agreement.
+   * @param offer The offer details that the resource is in use.
+   */
+  abstract checkCallLimit(
+    resource: Resource,
+    offer: OfferDetails,
+  ): Promise<boolean>;
+
   /**
    * Returns the list of languages supported by the provider.
    */
@@ -71,16 +83,6 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
        * request will reply back to the user with a validation error message
        * and bad request code automatically.
        */
-      const body = validateBodyOrParams(
-        req.body,
-        z.object({
-          /** ID of the resource. */
-          id: z.number(),
-
-          /** Product category address that the resource created in. */
-          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
-        }),
-      );
 
       /**
        * Retrieve the resource from the database.
@@ -93,11 +95,29 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
        * for the authorization (like call limiting etc.) you can do as well next to retrieving resource process.
        */
 
+      const body = validateBodyOrParams(
+        req.body,
+        z.object({
+          /** ID of the resource. */
+          id: z.number(),
+
+          /** Product category address that the resource created in. */
+          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
+        }),
+      );
+
       const resource = await DB.getResource(
         body.id,
         req.requester,
         body.pc as Address,
       );
+
+      const offer = await DB.getOffer(
+        resource?.offer.id as number,
+        body.pc as Address,
+      );
+
+      await this.checkCallLimit(resource as Resource, offer as OfferDetails);
 
       // If resource is not found or not active, throws a not found error.
       // "Active" means; is the agreement still active on-chain?
