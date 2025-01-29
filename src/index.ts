@@ -16,7 +16,6 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
-import { NotFound } from "./errors/NotFound";
 import { MachineTranslationProvider } from "./product-category/provider";
 
 async function sleep(ms: number) {

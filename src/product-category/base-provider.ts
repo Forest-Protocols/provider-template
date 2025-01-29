@@ -144,6 +144,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      */
 
     this.pipe.route(PipeMethod.POST, "/translate", async (req) => {
+      console.log(req)
       const bodySchema = z.object({
         id: z.number(),
         text: z.string(),

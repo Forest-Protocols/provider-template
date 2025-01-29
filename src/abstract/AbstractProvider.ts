@@ -98,6 +98,7 @@ export abstract class AbstractProvider<
     const productCategories = await this.registry.getRegisteredPCsOfProvider(
       provider.id
     );
+    console.log(productCategories)
 
     // Save the provider information into the database
     await DB.saveProvider(
