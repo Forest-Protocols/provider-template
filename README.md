@@ -88,13 +88,12 @@ Your Provider class must inherit from this Product Category's base Provider clas
 ```mermaid
 classDiagram
 	class YourProvider {
-
 	}
 	class BaseMachineTranslationProvider   {
 
         <<abstract class>>
         +abstract languages(): SupportedLanguages;
-        +abstract translate( options: { source?: string; target: string; }, text: string,): TranslateResponse~
+        +abstract translate( options: source?: string; target: string; text: string;): TranslateResponse~
         +abstract detect(text: string): DetectResponse~
 	}
 	class  AbstractProvider~DetailsType=ResourceDetails~  {
