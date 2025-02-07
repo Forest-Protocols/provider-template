@@ -1,6 +1,6 @@
 /* This file contains product category information that committed
  * on blockchain. Each provider that serves in this product category
- * must have the same information alongside the others.
+ * must have the same details.
  */
 {
   /* Smart contract address of the product category */

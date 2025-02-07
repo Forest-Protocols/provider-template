@@ -1,4 +1,9 @@
-import { DeploymentStatus } from "@forest-protocols/sdk";
+import {
+  DeploymentStatus,
+  OfferDetails,
+  PipeRequest,
+  PipeRouteHandlerResponse,
+} from "@forest-protocols/sdk";
 import { Address } from "viem";
 
 /**
@@ -13,16 +18,6 @@ export type ResourceDetails = {
    * a random name will be assigned to the resource. */
   name?: string;
   [key: string]: any;
-};
-
-/**
- * Offer details from the database.
- */
-export type OfferDetails = {
-  id: number;
-  details: any;
-  deploymentParams: any;
-  productCategory: Address;
 };
 
 /**
@@ -47,3 +42,17 @@ export type Resource = {
     };
   };
 };
+
+/**
+ * Offer related data stored in the database.
+ */
+export type DbOffer = {
+  id: number;
+  deploymentParams: any;
+  details: OfferDetails;
+  productCategory: Address;
+};
+
+export type ProviderPipeRouteHandler = (
+  req: PipeRequest & { providerId: number }
+) => Promise<PipeRouteHandlerResponse | void> | PipeRouteHandlerResponse | void;

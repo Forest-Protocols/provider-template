@@ -3,6 +3,7 @@ import {
   Agreement,
   DeploymentStatus,
   ProductCategoryABI,
+  Status,
 } from "@forest-protocols/sdk";
 import { Address, parseEventLogs } from "viem";
 import { DB } from "./database/Database";
@@ -362,6 +363,7 @@ class Program {
     logger.info("Checking balances of the agreements", { context: "Checker" });
     const closingRequests: Promise<any>[] = [];
 
+    // Check all agreements for all providers in all product categories
     for (const [_, provider] of Object.entries(this.providers)) {
       for (const [_, pc] of Object.entries(provider.productCategories)) {
         const agreements = await pc.getAllProviderAgreements(
@@ -369,6 +371,10 @@ class Program {
         );
 
         for (const agreement of agreements) {
+          if (agreement.status == Status.NotActive) {
+            continue;
+          }
+
           const balance = await pc.getAgreementBalance(agreement.id);
 
           // If balance of the agreement is ran out of,

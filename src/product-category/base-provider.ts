@@ -5,7 +5,7 @@ import {
   validateBodyOrParams,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
-import { OfferDetails, Resource, ResourceDetails } from "@/types";
+import { DbOffer, Resource, ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
@@ -36,7 +36,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    */
   abstract checkCallLimit(
     resource: Resource,
-    offer: OfferDetails,
+    offer: DbOffer,
   ): Promise<boolean>;
 
   /**
@@ -117,7 +117,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         body.pc as Address,
       );
 
-      await this.checkCallLimit(resource as Resource, offer as OfferDetails);
+      await this.checkCallLimit(resource as Resource, offer as DbOffer);
 
       // If resource is not found or not active, throws a not found error.
       // "Active" means; is the agreement still active on-chain?
@@ -143,8 +143,8 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * }
      */
 
-    this.pipe.route(PipeMethod.POST, "/translate", async (req) => {
-      console.log(req)
+    this.route(PipeMethod.POST, "/translate", async (req) => {
+      console.log(req);
       const bodySchema = z.object({
         id: z.number(),
         text: z.string(),
@@ -190,7 +190,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      * text (required) : string -> The text that is going to be detected
      * }
      */
-    this.pipe.route(PipeMethod.POST, "/detect", async (req) => {
+    this.route(PipeMethod.POST, "/detect", async (req) => {
       const bodySchema = z.object({
         id: z.number(),
         text: z.string(),

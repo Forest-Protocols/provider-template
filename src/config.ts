@@ -1,11 +1,15 @@
 import { z } from "zod";
-import { red } from "ansis";
+import { cyan, red } from "ansis";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
 import {
   addressSchema,
-  getForestRegistryAddress,
+  ForestRegistryAddress,
+  getContractAddressByChain,
+  OfferDetailsSchema,
   privateKeySchema,
+  ProductCategoryDetailsSchema,
+  ProviderDetailsSchema,
 } from "@forest-protocols/sdk";
 import { nonEmptyStringSchema } from "./validation/schemas";
 import { fromError } from "zod-validation-error";
@@ -34,21 +38,7 @@ function parseEnv() {
 function parseProductCategories() {
   const pcSchema = z.object({
     address: addressSchema.transform((value) => value.toLowerCase()),
-    details: z.object({
-      name: z.string(),
-      softwareStack: z.string(),
-      version: z.string(),
-      tests: z.array(z.any()), // TODO: Define object shape
-      resourceParams: z.array(
-        z.object({
-          name: z.string(),
-          unit: z.string(),
-          isFilterable: z.boolean(),
-          isPrimary: z.boolean(),
-          priority: z.number().positive(),
-        })
-      ),
-    }),
+    details: ProductCategoryDetailsSchema,
   });
 
   const productCategories: {
@@ -63,6 +53,7 @@ function parseProductCategories() {
         continue;
       }
 
+      console.log(`Reading product category details from ${cyan(file)}`);
       const content = readFileSync(join(basePath, file.toString())).toString();
       const rawObject = JSON.parse(content);
       const validation = pcSchema.safeParse(rawObject);
@@ -86,11 +77,7 @@ function parseProductCategories() {
 
 function parseProviders() {
   const providerSchema = z.object({
-    details: z.object({
-      name: nonEmptyStringSchema,
-      description: nonEmptyStringSchema,
-      homepage: nonEmptyStringSchema,
-    }),
+    details: ProviderDetailsSchema,
     providerWalletPrivateKey: privateKeySchema,
     billingWalletPrivateKey: privateKeySchema,
     operatorWalletPrivateKey: privateKeySchema,
@@ -105,6 +92,7 @@ function parseProviders() {
       join(process.cwd(), "data/providers.json")
     ).toString();
     const rootObject = JSON.parse(fileContent);
+    console.log(`Reading ${cyan("providers.json")}`);
 
     for (const [name, info] of Object.entries(rootObject)) {
       // Validate each provider object
@@ -128,15 +116,7 @@ function parseOffers() {
     id: z.number(),
     productCategory: addressSchema.transform((value) => value.toLowerCase()),
     deploymentParams: z.any(),
-    details: z.object({
-      name: nonEmptyStringSchema,
-      resourceParams: z.array(
-        z.object({
-          name: z.string(),
-          value: z.any(),
-        })
-      ),
-    }),
+    details: OfferDetailsSchema,
   });
 
   const offers: {
@@ -151,6 +131,7 @@ function parseOffers() {
         continue;
       }
 
+      console.log(`Reading offer from ${cyan(file)}`);
       const content = readFileSync(join(basePath, file.toString())).toString();
       const rawObject = JSON.parse(content);
       const validation = offerSchema.safeParse(rawObject);
@@ -181,5 +162,5 @@ export const config = {
   providers: parseProviders(),
   productCategories: parseProductCategories(),
   offers: parseOffers(),
-  registryAddress: getForestRegistryAddress(env.CHAIN),
+  registryAddress: getContractAddressByChain(env.CHAIN, ForestRegistryAddress),
 };

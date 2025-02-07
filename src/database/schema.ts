@@ -1,4 +1,3 @@
-import { OfferParameterType } from "@/constants";
 import { relations } from "drizzle-orm";
 import {
   bigint,
@@ -11,8 +10,12 @@ import {
   primaryKey,
   varchar,
 } from "drizzle-orm/pg-core";
-import { DeploymentStatus, ProviderDetails } from "@forest-protocols/sdk";
-import { Address } from "viem";
+import {
+  DeploymentStatus,
+  OfferDetails,
+  ProductCategoryDetails,
+  ProviderDetails,
+} from "@forest-protocols/sdk";
 
 export const resourcesTable = pgTable(
   "resources",
@@ -54,7 +57,7 @@ relations(resourcesTable, ({ one }) => ({
 
 export const providersTable = pgTable("providers", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  details: json().$type<any>().default({}).notNull(),
+  details: json().$type<ProviderDetails>().notNull(),
   ownerAddress: varchar("owner_address", { length: 65 }).notNull().unique(),
 });
 relations(providersTable, ({ many }) => ({
@@ -65,7 +68,7 @@ relations(providersTable, ({ many }) => ({
 export const productCategoriesTable = pgTable("product_categories", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   address: varchar({ length: 100 }).notNull().unique(),
-  details: jsonb().$type<any>().notNull().default({}),
+  details: jsonb().$type<ProductCategoryDetails>().notNull(),
 });
 relations(productCategoriesTable, ({ many }) => ({
   offers: many(offersTable),
@@ -82,7 +85,7 @@ export const offersTable = pgTable(
     pcAddressId: integer("pc_address_id")
       .references(() => productCategoriesTable.id)
       .notNull(),
-    details: jsonb().$type<any>().notNull(),
+    details: jsonb().$type<OfferDetails>().notNull(),
     deploymentParams: json("deployment_params")
       .$type<any>()
       .notNull()
@@ -122,5 +125,4 @@ export const blockchainTxsTable = pgTable(
 
 export type DbResource = typeof resourcesTable.$inferSelect;
 export type DbResourceInsert = typeof resourcesTable.$inferInsert;
-export type DbOffer = typeof offersTable.$inferSelect;
 export type DbProductCategory = typeof productCategoriesTable.$inferSelect;

@@ -3,14 +3,14 @@ import {
   BaseMachineTranslationProvider,
   MachineTranslationDetails,
 } from "./base-provider";
-import { Resource, OfferDetails } from "@/types";
+import { DbOffer, Resource } from "@/types";
 
 /**
  * The main class that implements provider specific actions.
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
-  async checkCallLimit(resource: Resource, offer: OfferDetails): Promise<any> {
+  async checkCallLimit(resource: Resource, offer: DbOffer): Promise<any> {
     /**
      * TODO: Implement how the resource will be created.
      */
@@ -21,7 +21,7 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
 
   async create(
     agreement: Agreement,
-    offer: OfferDetails,
+    offer: DbOffer,
   ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be created.
@@ -86,3 +86,4 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
     throw new Error("Method not implemented.");
   }
 }
+
