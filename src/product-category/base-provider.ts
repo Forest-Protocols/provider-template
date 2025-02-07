@@ -34,10 +34,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param resource Resource record of the agreement.
    * @param offer The offer details that the resource is in use.
    */
-  abstract checkCallLimit(
-    resource: Resource,
-    offer: DbOffer,
-  ): Promise<boolean>;
+  abstract checkCallLimit(resource: Resource, offer: DbOffer): Promise<boolean>;
 
   /**
    * Returns the list of languages supported by the provider.
@@ -77,7 +74,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
      path: /languages,
      */
 
-    this.pipe.route(PipeMethod.GET, "/languages", async (req) => {
+    this.route(PipeMethod.GET, "/languages", async (req) => {
       /**
        * Validates the params/body of the request. If they are not valid
        * request will reply back to the user with a validation error message
