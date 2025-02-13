@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres:16.4-bookworm
+    restart: unless-stopped
+    networks:
+      - daemon
+    volumes:
+      - ./volumes/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres
+  daemon:
+    build:
+      context: .
+    env_file:
+      - .env
+    volumes:
+      - ./data:/daemon/data
+    restart: unless-stopped
+    depends_on:
+      - db
+    networks:
+      - daemon
+
+networks:
+  daemon:
+    driver: bridge

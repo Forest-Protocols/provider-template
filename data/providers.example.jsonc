@@ -1,22 +1,13 @@
-/* This file contains information about providers that used by this daemon.
- * You (operator) need to rename this ile to "providers.json" and fill the
+/* This file includes Provider configuration of the daemon process.
+ * You (as an operator) need to rename this file to "providers.json" and fill the
  * empty fields inside of it. */
 
 {
-  /* Each provider information should be in different "tags".
-   * If you want to add multiple providers into a single daemon
-   * you need to define different "tags" and assign them to a provider
-   * class inside src/index.ts. */
+  /* Each provider information should be in different "tags" and associated
+   * with a Provider class in src/index.ts*/
 
-  /* This is a provider tag. */
+  /* This is a provider tag. Add as many as you need. */
   "main": {
-    /* Details of the provider that committed to blockchain. */
-    "details": {
-      "name": "n/a",
-      "description": "n/a",
-      "homepage": "n/a"
-    },
-
     "providerWalletPrivateKey": "0x",
     "billingWalletPrivateKey": "0x",
     "operatorWalletPrivateKey": "0x"

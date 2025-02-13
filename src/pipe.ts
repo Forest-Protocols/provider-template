@@ -9,6 +9,7 @@ import {
 import { AbstractProvider } from "./abstract/AbstractProvider";
 import { z } from "zod";
 import { ProviderPipeRouteHandler } from "./types";
+import { logger } from "./logger";
 
 /**
  * Operator pipes in this daemon
@@ -106,5 +107,8 @@ export function pipeOperatorRoute(
     throw new Error(`There is no pipe for ${operatorAddress}`);
   }
 
-  pipes[operatorAddress].route(method, path, handler);
+  pipes[operatorAddress].route(method, path, async (req) => {
+    logger.info(`Got Pipe request with id ${req.id} on ${method} ${path}`);
+    return await handler(req);
+  });
 }

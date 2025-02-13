@@ -1,8 +1,9 @@
 node_modules
 .vscode
 .env*
-!.env.*example
 dist
-data/providers.json
-
+.git
+README.md
+.prettierrc
 volumes
+data

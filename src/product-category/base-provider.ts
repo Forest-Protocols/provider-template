@@ -5,7 +5,7 @@ import {
   validateBodyOrParams,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
-import { DbOffer, Resource, ResourceDetails } from "@/types";
+import { DetailedOffer, Resource, ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
@@ -14,7 +14,7 @@ import { z } from "zod";
 import { validateBody } from "@/helpers";
 
 /**
- * The details gathered by the provider from the resource source.
+ * The details gathered by the Provider from the resource source.
  * This is the "details" type of each resource and it is stored in the database.
  * @responsible Product Category Owner
  */
@@ -24,7 +24,7 @@ export type MachineTranslationDetails = ResourceDetails & {
 };
 
 /**
- * Base provider that defines what kind of actions needs to be implemented for the product category.
+ * Base Provider that defines what kind of actions needs to be implemented for the Product Category.
  * @responsible Product Category Owner
  */
 
@@ -34,7 +34,10 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param resource Resource record of the agreement.
    * @param offer The offer details that the resource is in use.
    */
-  abstract checkCallLimit(resource: Resource, offer: DbOffer): Promise<boolean>;
+  abstract checkCallLimit(
+    resource: Resource,
+    offer: DetailedOffer,
+  ): Promise<boolean>;
 
   /**
    * Returns the list of languages supported by the provider.
@@ -98,23 +101,16 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
           /** ID of the resource. */
           id: z.number(),
 
-          /** Product category address that the resource created in. */
+          /** Product Category address that the resource created in. */
           pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
         }),
       );
 
-      const resource = await DB.getResource(
+      const { resource, agreement } = await this.getResource(
         body.id,
+        body.pc as Address,
         req.requester,
-        body.pc as Address,
       );
-
-      const offer = await DB.getOffer(
-        resource?.offer.id as number,
-        body.pc as Address,
-      );
-
-      await this.checkCallLimit(resource as Resource, offer as DbOffer);
 
       // If resource is not found or not active, throws a not found error.
       // "Active" means; is the agreement still active on-chain?

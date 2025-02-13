@@ -5,14 +5,14 @@ import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 import { logger } from "@/logger";
 import { pipeOperatorRoute, pipes, providerPipeRoute } from "@/pipe";
 import {
-  DbOffer,
+  DetailedOffer,
   ProviderPipeRouteHandler,
   Resource,
   ResourceDetails,
 } from "@/types";
+import { tryParseJSON } from "@/utils";
 import {
   addressSchema,
-  PipeError,
   PipeRouteHandler,
   Provider,
   ProviderDetails,
@@ -36,17 +36,19 @@ import { z } from "zod";
  * @responsible Admin
  */
 export abstract class AbstractProvider<
-  T extends ResourceDetails = ResourceDetails
+  T extends ResourceDetails = ResourceDetails,
 > {
   registry!: Registry;
 
-  productCategories: { [address: string]: ProductCategory } = {};
+  pcClients: { [address: string]: ProductCategory } = {};
 
   account!: Account;
 
   actorInfo!: Provider;
 
   details!: ProviderDetails;
+
+  logger = logger.child({ context: this.constructor.name });
 
   /**
    * Initializes the provider if it needs some async operation to be done before start to use it.
@@ -55,148 +57,101 @@ export abstract class AbstractProvider<
     const providerConfig = config.providers[providerTag];
 
     if (!providerConfig) {
-      logger.error(
-        `Provider config not found for provider tag "${providerTag}". Please check your data/providers.json and be sure this tag is associated with a provider class in src/index.ts - Beginning of the Program class`
+      this.logger.error(
+        `Provider config not found for provider tag "${providerTag}". Please check your data/providers.json file`,
       );
       process.exit(1);
     }
 
-    this.details = providerConfig.details;
-
-    // Setup provider account
+    // Setup Provider account
     this.account = privateKeyToAccount(
-      providerConfig.providerWalletPrivateKey as Address
+      providerConfig.providerWalletPrivateKey as Address,
     );
 
-    // Initialize Forest Protocols clients
+    // Initialize clients
     this.registry = Registry.createWithClient(rpcClient, this.account);
 
+    this.logger.info("Checking in Protocol Actor information");
     const provider = await this.registry.getActor(this.account.address);
     if (!provider) {
-      logger.error(
+      this.logger.error(
         red(
-          `Provider address "${this.account.address}" is not registered in the protocol. Please register the provider and try again.`
-        )
+          `Provider address "${this.account.address}" is not registered in the Protocol. Please register it and try again.`,
+        ),
       );
       process.exit(1);
     }
-
     this.actorInfo = provider;
 
-    const productCategories = await this.registry.getRegisteredPCsOfProvider(
-      provider.id
-    );
-    console.log(productCategories)
-
-    // Save the provider information into the database
-    await DB.saveProvider(
+    await DB.upsertProvider(
       this.actorInfo.id,
-      this.details,
-      this.actorInfo.ownerAddr
+      this.actorInfo.detailsLink,
+      this.actorInfo.ownerAddr,
     );
 
-    for (const pcAddress of productCategories) {
-      const pcInfo = config.productCategories[pcAddress.toLowerCase()];
-      if (!pcInfo) {
-        logger.error(
-          red(
-            `Product category ${pcAddress} details are not available inside data/product-categories directory. Please define the details of the product category and try again`
-          )
+    // TODO: Validate details schema
+    const [provDetailFile] = await DB.getDetailFiles([provider.detailsLink]);
+
+    // `DB.upsertProvider` already checked the existence of the details file
+    this.details = tryParseJSON(provDetailFile.content);
+
+    const pcAddresses = await this.registry.getRegisteredPCsOfProvider(
+      provider.id,
+    );
+
+    for (const pcAddress of pcAddresses) {
+      this.pcClients[pcAddress.toLowerCase()] =
+        ProductCategory.createWithClient(
+          rpcClient,
+          pcAddress as Address,
+          this.account,
         );
-        process.exit(1);
-      }
-
-      const pc = ProductCategory.createWithClient(
-        rpcClient,
-        pcAddress as Address,
-        this.account
-      );
-      const offers = await pc.getAllProviderOffers(this.actorInfo.ownerAddr);
-
-      await DB.saveProductCategory(
-        pcAddress.toLowerCase() as Address,
-        pcInfo.details
-      );
-
-      // Save offer details to the database
-      for (const offer of offers) {
-        // Only pick the offers are registered on chain
-        const offerData = config.offers[pcAddress.toLowerCase()].find(
-          (offerInfo) => offerInfo.id == offer.id
-        );
-
-        // Only save this offer if details are defined for it
-        if (offerData) {
-          await DB.saveOffer(
-            offer.id,
-            this.actorInfo.id,
-            pcAddress.toLowerCase() as Address,
-            offerData.deploymentParams,
-            offerData.details
-          );
-        } else {
-          logger.warning(
-            `Offer ${offer.id} is committed to block chain in product category ${pcAddress} but details not found in data/offers directory.`
-          );
-        }
-      }
-
-      this.productCategories[pcAddress.toLowerCase()] = pc;
     }
 
     // Initialize pipe for this operator address if it is not instantiated yet.
     if (!pipes[this.actorInfo.operatorAddr]) {
       pipes[this.actorInfo.operatorAddr] = new XMTPPipe(
-        providerConfig.operatorWalletPrivateKey as Address
+        providerConfig.operatorWalletPrivateKey,
       );
       // Disable console.info to get rid out of "XMTP dev" warning
       const consoleInfo = console.info;
-      console.info = () => {};
+      console.info = () => { };
 
       // Use dev env only for local and sepolia chains
       await pipes[this.actorInfo.operatorAddr].init(
-        config.CHAIN === "optimism" ? "production" : "dev"
+        config.CHAIN === "optimism" ? "production" : "dev",
       );
 
       // Revert back console.info
       console.info = consoleInfo;
 
-      logger.info(
+      this.logger.info(
         `Initialized Pipe for operator ${yellow.bold(
-          this.actorInfo.operatorAddr
-        )}`
+          this.actorInfo.operatorAddr,
+        )}`,
       );
 
       // Setup operator specific endpoints
 
       /**
-       * Retrieves details of a product category
+       * Retrieves detail file(s)
        */
-      this.operatorRoute(PipeMethod.GET, "/product-categories", async (req) => {
-        const params = validateBodyOrParams(
-          req.params,
-          z.object({
-            /**
-             * Product category address
-             */
-            pc: addressSchema.optional(),
-          })
-        );
+      this.operatorRoute(PipeMethod.GET, "/details", async (req) => {
+        const body = validateBodyOrParams(req.body, z.array(z.string()).min(1));
+        const files = await DB.getDetailFiles(body);
 
-        const pc = await DB.getProductCategory(params.pc as Address);
-
-        if (!pc) {
-          throw new PipeErrorNotFound("Product category");
+        if (files.length == 0) {
+          throw new PipeErrorNotFound("Detail files");
         }
 
         return {
           code: PipeResponseCode.OK,
-          body: pc.details,
+          body: files.map((file) => file.content),
         };
       });
 
       /**
-       * Retrieve details (e.g credentials) of all or just a single resource.
+       * Retrieve details (e.g credentials) of resource(s).
        */
       this.operatorRoute(PipeMethod.GET, "/resources", async (req) => {
         const params = validateBodyOrParams(
@@ -207,10 +162,10 @@ export abstract class AbstractProvider<
 
             /** Product category address that the resource created in. */
             pc: addressSchema.optional(), // A pre-defined Zod schema for smart contract addresses.
-          })
+          }),
         );
 
-        // If not both of them are given
+        // If not both of them are given, send all resources of the requester
         if (params.id === undefined || params.pc === undefined) {
           return {
             code: PipeResponseCode.OK,
@@ -226,7 +181,7 @@ export abstract class AbstractProvider<
         const resource = await DB.getResource(
           params.id,
           req.requester,
-          params.pc as Address
+          params.pc as Address,
         );
 
         if (!resource) {
@@ -250,90 +205,14 @@ export abstract class AbstractProvider<
           body: resource,
         };
       });
-
-      /**
-       * Retrieves all of the offers that registered in this daemon
-       */
-      this.operatorRoute(PipeMethod.GET, "/offers", async (req) => {
-        const params = validateBodyOrParams(
-          req.params,
-          z.object({
-            /**
-             * Product category address
-             */
-            pc: addressSchema.optional(),
-
-            /**
-             * ID of the offer.
-             */
-            id: z.number().optional(),
-
-            providerId: z.number().optional(),
-          })
-        );
-
-        let offers: DbOffer[] = [];
-
-        // Retrieve a specific Offer from a specific product category
-        if (params.id !== undefined) {
-          if (params.pc === undefined) {
-            throw new PipeError(PipeResponseCode.BAD_REQUEST, {
-              message: "'pc' param must be used with 'id' param",
-            });
-          }
-
-          const offer = await DB.getOffer(params.id, params.pc as Address);
-          if (!offer) {
-            throw new PipeErrorNotFound(`Offer ${params.id} in ${params.pc}`);
-          }
-
-          return {
-            code: PipeResponseCode.OK,
-            body: {
-              ...offer,
-              deploymentParams: undefined, // No need to send it to the user
-            },
-          };
-        } else if (params.providerId !== undefined) {
-          // Retrieve all offers of the given provider
-          offers = await DB.getAllOffersOfProvider(
-            params.providerId,
-            params.pc as Address
-          );
-        } else {
-          // Retrieve all offers exists in this daemon
-          // or retrieve all offers from the given PC (if it is there)
-          offers = await DB.getAllOffers(params.pc as Address);
-        }
-
-        return {
-          code: PipeResponseCode.OK,
-          body: offers.map((offer) => ({
-            ...offer,
-            deploymentParams: undefined, // No need to send it to the user
-          })),
-        };
-      });
     }
-
-    // Setup provider specific Pipe endpoints
-
-    /**
-     * Retrieves details of the provider.
-     */
-    this.route(PipeMethod.GET, "/details", async (req) => {
-      return {
-        code: PipeResponseCode.OK,
-        body: await DB.getProviderDetails(req.providerId),
-      };
-    });
   }
 
   /**
    * Gets the Product Category client from the registered product category list of this provider.
    */
   getPcClient(pcAddress: Address) {
-    return this.productCategories[pcAddress.toLowerCase()];
+    return this.pcClients[pcAddress.toLowerCase()];
   }
 
   /**
@@ -345,14 +224,14 @@ export abstract class AbstractProvider<
   protected async getResource(
     id: number,
     pcAddress: Address,
-    requester: string
+    requester: string,
   ) {
     const resource = await DB.getResource(id, requester, pcAddress);
 
     if (
       !resource || // Resource does not exist
       !resource.isActive || // Agreement of the resource is closed
-      resource.offer.provider.id != this.actorInfo.id // Resource doesn't belong to this provider
+      resource.providerId != this.actorInfo.id // Resource doesn't belong to this provider
     ) {
       throw new PipeErrorNotFound("Resource");
     }
@@ -374,7 +253,7 @@ export abstract class AbstractProvider<
   protected route(
     method: PipeMethod,
     path: `/${string}`,
-    handler: ProviderPipeRouteHandler
+    handler: ProviderPipeRouteHandler,
   ) {
     providerPipeRoute(this, method, path, handler);
   }
@@ -385,29 +264,39 @@ export abstract class AbstractProvider<
   protected operatorRoute(
     method: PipeMethod,
     path: `/${string}`,
-    handler: PipeRouteHandler
+    handler: PipeRouteHandler,
   ) {
     pipeOperatorRoute(this.actorInfo.operatorAddr, method, path, handler);
   }
 
   /**
    * Creates the actual resource based. Called based on the blockchain agreement creation event.
-   * @param agreement On-chain agreement of the resource
-   * @param offer Offer details stored in the database
+   * @param agreement On-chain Agreement data
+   * @param offer On-chain Offer data and details (if exists)
    */
-  abstract create(agreement: Agreement, offer: DbOffer): Promise<T>;
+  abstract create(agreement: Agreement, offer: DetailedOffer): Promise<T>;
 
   /**
    * Fetches/retrieves the details about the resource from the resource itself
-   * @param agreement On-chain agreement of the resource
-   * @param resource The details stored inside the database
+   * @param agreement On-chain Agreement data
+   * @param offer On-chain Offer data and details (if exists)
+   * @param resource Current details stored in the database
    */
-  abstract getDetails(agreement: Agreement, resource: Resource): Promise<T>;
+  abstract getDetails(
+    agreement: Agreement,
+    offer: DetailedOffer,
+    resource: Resource,
+  ): Promise<T>;
 
   /**
    * Deletes the actual resource based. Called based on the blockchain agreement closing event.
-   * @param agreement On-chain agreement of the resource
-   * @param resource The details stored inside the database
+   * @param agreement On-chain Agreement data
+   * @param offer On-chain Offer data and details (if exists)
+   * @param resource Current details stored in the database
    */
-  abstract delete(agreement: Agreement, resource: Resource): Promise<T>;
+  abstract delete(
+    agreement: Agreement,
+    offer: DetailedOffer,
+    resource: Resource,
+  ): Promise<void>;
 }

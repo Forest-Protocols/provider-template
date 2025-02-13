@@ -1,5 +1,5 @@
 {
-  "id": "f5bf9e1b-5a58-4c27-aeb1-896a4169fde4",
+  "id": "c871189e-91fe-467b-a286-ae9e3243e24b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -43,74 +43,52 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.offers": {
-      "name": "offers",
+    "public.detail_files": {
+      "name": "detail_files",
       "schema": "",
       "columns": {
         "id": {
           "name": "id",
           "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "detail_files_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "2147483647",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "cid": {
+          "name": "cid",
+          "type": "varchar(100)",
           "primaryKey": false,
           "notNull": true
         },
-        "provider_id": {
-          "name": "provider_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "pc_address_id": {
-          "name": "pc_address_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "details": {
-          "name": "details",
-          "type": "jsonb",
+        "content": {
+          "name": "content",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "offers_provider_id_providers_id_fk": {
-          "name": "offers_provider_id_providers_id_fk",
-          "tableFrom": "offers",
-          "tableTo": "providers",
-          "columnsFrom": [
-            "provider_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "offers_pc_address_id_product_categories_id_fk": {
-          "name": "offers_pc_address_id_product_categories_id_fk",
-          "tableFrom": "offers",
-          "tableTo": "product_categories",
-          "columnsFrom": [
-            "pc_address_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "offers_id_pc_address_id_pk": {
-          "name": "offers_id_pc_address_id_pk",
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "detail_files_cid_unique": {
+          "name": "detail_files_cid_unique",
+          "nullsNotDistinct": false,
           "columns": [
-            "id",
-            "pc_address_id"
+            "cid"
           ]
         }
       },
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -146,7 +124,15 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "product_categories_address_unique": {
+          "name": "product_categories_address_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "address"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -159,25 +145,7 @@
           "name": "id",
           "type": "integer",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "providers_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "2147483647",
-            "cache": "1",
-            "cycle": false
-          }
-        },
-        "details": {
-          "name": "details",
-          "type": "json",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'{}'::json"
+          "notNull": true
         },
         "owner_address": {
           "name": "owner_address",
@@ -285,17 +253,15 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "resources_offers_fk": {
-          "name": "resources_offers_fk",
+        "resources_pc_address_id_product_categories_id_fk": {
+          "name": "resources_pc_address_id_product_categories_id_fk",
           "tableFrom": "resources",
-          "tableTo": "offers",
+          "tableTo": "product_categories",
           "columnsFrom": [
-            "offer_id",
             "pc_address_id"
           ],
           "columnsTo": [
-            "id",
-            "pc_address_id"
+            "id"
           ],
           "onDelete": "no action",
           "onUpdate": "no action"

@@ -2,20 +2,14 @@ import { relations } from "drizzle-orm";
 import {
   bigint,
   boolean,
-  foreignKey,
   integer,
   json,
-  jsonb,
   pgTable,
   primaryKey,
+  text,
   varchar,
 } from "drizzle-orm/pg-core";
-import {
-  DeploymentStatus,
-  OfferDetails,
-  ProductCategoryDetails,
-  ProviderDetails,
-} from "@forest-protocols/sdk";
+import { DeploymentStatus } from "@forest-protocols/sdk";
 
 export const resourcesTable = pgTable(
   "resources",
@@ -35,16 +29,13 @@ export const resourcesTable = pgTable(
     providerId: integer("provider_id")
       .references(() => providersTable.id)
       .notNull(),
-    pcAddressId: integer("pc_address_id").notNull(),
+    pcAddressId: integer("pc_address_id")
+      .references(() => productCategoriesTable.id)
+      .notNull(),
   },
   (table) => [
     primaryKey({
       columns: [table.id, table.pcAddressId],
-    }),
-    foreignKey({
-      name: "resources_offers_fk",
-      columns: [table.offerId, table.pcAddressId],
-      foreignColumns: [offersTable.id, offersTable.pcAddressId],
     }),
   ]
 );
@@ -53,60 +44,26 @@ relations(resourcesTable, ({ one }) => ({
     fields: [resourcesTable.providerId],
     references: [providersTable.id],
   }),
+  productCategory: one(productCategoriesTable, {
+    fields: [resourcesTable.pcAddressId],
+    references: [productCategoriesTable.id],
+  }),
 }));
 
 export const providersTable = pgTable("providers", {
-  id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
-  details: json().$type<ProviderDetails>().notNull(),
+  id: integer("id").primaryKey(),
   ownerAddress: varchar("owner_address", { length: 65 }).notNull().unique(),
 });
-relations(providersTable, ({ many }) => ({
-  offers: many(offersTable),
+relations(providersTable, ({ many, one }) => ({
   resources: many(resourcesTable),
 }));
 
 export const productCategoriesTable = pgTable("product_categories", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   address: varchar({ length: 100 }).notNull().unique(),
-  details: jsonb().$type<ProductCategoryDetails>().notNull(),
 });
-relations(productCategoriesTable, ({ many }) => ({
-  offers: many(offersTable),
+relations(productCategoriesTable, ({ many, one }) => ({
   resources: many(resourcesTable),
-}));
-
-export const offersTable = pgTable(
-  "offers",
-  {
-    id: integer("id").notNull(),
-    providerId: integer("provider_id")
-      .references(() => providersTable.id)
-      .notNull(),
-    pcAddressId: integer("pc_address_id")
-      .references(() => productCategoriesTable.id)
-      .notNull(),
-    details: jsonb().$type<OfferDetails>().notNull(),
-    deploymentParams: json("deployment_params")
-      .$type<any>()
-      .notNull()
-      .default({}),
-  },
-  (table) => [
-    primaryKey({
-      columns: [table.id, table.pcAddressId],
-    }),
-  ]
-);
-relations(offersTable, ({ one, many }) => ({
-  resources: many(resourcesTable),
-  productCategory: one(productCategoriesTable, {
-    fields: [offersTable.pcAddressId],
-    references: [productCategoriesTable.id],
-  }),
-  provider: one(providersTable, {
-    fields: [offersTable.providerId],
-    references: [providersTable.id],
-  }),
 }));
 
 export const blockchainTxsTable = pgTable(
@@ -123,6 +80,13 @@ export const blockchainTxsTable = pgTable(
   ]
 );
 
+export const detailFilesTable = pgTable("detail_files", {
+  id: integer().primaryKey().generatedByDefaultAsIdentity(),
+  cid: varchar({ length: 100 }).notNull().unique(),
+  content: text().notNull(),
+});
+
+export type DbDetailFileInsert = typeof detailFilesTable.$inferInsert;
 export type DbResource = typeof resourcesTable.$inferSelect;
 export type DbResourceInsert = typeof resourcesTable.$inferInsert;
 export type DbProductCategory = typeof productCategoriesTable.$inferSelect;

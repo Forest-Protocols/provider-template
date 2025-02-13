@@ -1,14 +1,10 @@
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { config } from "@/config";
-import {
-  DeploymentStatus,
-  NotInitialized,
-  ProviderDetails,
-} from "@forest-protocols/sdk";
-import { and, desc, eq, getTableColumns, sql } from "drizzle-orm";
+import { DeploymentStatus, generateCID } from "@forest-protocols/sdk";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 import { Address } from "viem/accounts";
-import { DbOffer, Resource } from "@/types";
+import { Resource } from "@/types";
 import { logger } from "@/logger";
 import * as schema from "./schema";
 import pg from "pg";
@@ -90,16 +86,6 @@ class Database {
     );
   }
 
-  async getAllOffers(pcAddress?: Address) {
-    return await this.offerQuery().where(
-      and(
-        pcAddress
-          ? eq(schema.productCategoriesTable.address, pcAddress.toLowerCase())
-          : undefined
-      )
-    );
-  }
-
   /**
    * Retrieves details of a resource.
    * @param id
@@ -115,188 +101,95 @@ class Database {
       return;
     }
 
-    const [resource] = await this.resourceQuery().where(
+    const [resource] = await this.resourceQuery(pc.address).where(
       and(
         eq(schema.resourcesTable.id, id),
-        eq(schema.resourcesTable.ownerAddress, ownerAddress),
+        eq(
+          sql`LOWER(${schema.resourcesTable.ownerAddress})`,
+          ownerAddress.toLowerCase()
+        ),
         eq(schema.resourcesTable.pcAddressId, pc.id)
       )
     );
 
     if (!resource) return;
 
-    return {
-      id: resource.id,
-      name: resource.name,
-      deploymentStatus: resource.deploymentStatus,
-      details: resource.details,
-      groupName: resource.groupName,
-      isActive: resource.isActive,
-      ownerAddress: resource.ownerAddress as Address,
-      offer: {
-        provider: {
-          id: resource.provider.id,
-          details: resource.provider.details,
-          ownerAddress: resource.provider.ownerAddress as Address,
-        },
-        details: resource.offer.details,
-        id: resource.offer.id,
-        productCategory: resource.productCategory.address as Address,
-      },
-    };
+    return resource;
   }
 
-  resourceQuery() {
+  /**
+   * Builds a Resource select query
+   */
+  private resourceQuery(pcAddress?: string) {
+    if (!pcAddress) {
+      return this.client
+        .select({
+          id: schema.resourcesTable.id,
+          name: schema.resourcesTable.name,
+          deploymentStatus: schema.resourcesTable.deploymentStatus,
+          details: schema.resourcesTable.details,
+          groupName: schema.resourcesTable.groupName,
+          isActive: schema.resourcesTable.isActive,
+          ownerAddress: sql<Address>`${schema.resourcesTable.ownerAddress}`,
+          offerId: schema.resourcesTable.offerId,
+          providerId: schema.resourcesTable.providerId,
+          providerAddress: sql<Address>`${schema.providersTable.ownerAddress}`,
+          pcAddress: sql<Address>`${schema.productCategoriesTable.address}`,
+        })
+        .from(schema.resourcesTable)
+        .innerJoin(
+          schema.productCategoriesTable,
+          eq(
+            schema.productCategoriesTable.id,
+            schema.resourcesTable.pcAddressId
+          )
+        )
+        .innerJoin(
+          schema.providersTable,
+          eq(schema.providersTable.id, schema.resourcesTable.providerId)
+        )
+        .$dynamic();
+    }
+
     return this.client
       .select({
-        ...getTableColumns(schema.resourcesTable),
-        offer: schema.offersTable,
-        provider: schema.providersTable,
-        productCategory: schema.productCategoriesTable,
+        id: schema.resourcesTable.id,
+        name: schema.resourcesTable.name,
+        deploymentStatus: schema.resourcesTable.deploymentStatus,
+        details: schema.resourcesTable.details,
+        groupName: schema.resourcesTable.groupName,
+        isActive: schema.resourcesTable.isActive,
+        ownerAddress: sql<Address>`${schema.resourcesTable.ownerAddress}`,
+        offerId: schema.resourcesTable.offerId,
+        providerId: schema.resourcesTable.providerId,
+        providerAddress: sql<Address>`${schema.providersTable.ownerAddress}`,
+        pcAddress: sql<Address>`${pcAddress}`,
       })
       .from(schema.resourcesTable)
       .innerJoin(
-        schema.offersTable,
-        and(
-          eq(schema.resourcesTable.offerId, schema.offersTable.id),
-          eq(schema.resourcesTable.pcAddressId, schema.offersTable.pcAddressId)
-        )
-      )
-      .innerJoin(
         schema.providersTable,
-        eq(schema.resourcesTable.providerId, schema.providersTable.id)
-      )
-      .innerJoin(
-        schema.productCategoriesTable,
-        eq(schema.offersTable.pcAddressId, schema.productCategoriesTable.id)
+        eq(schema.providersTable.id, schema.resourcesTable.providerId)
       )
       .$dynamic();
   }
 
-  offerQuery() {
-    return this.client
-      .select({
-        id: schema.offersTable.id,
-        deploymentParams: schema.offersTable.deploymentParams,
-        details: schema.offersTable.details,
-        productCategory: sql<Address>`${schema.productCategoriesTable.address}`,
-      })
-      .from(schema.offersTable)
-      .innerJoin(
-        schema.providersTable,
-        eq(schema.offersTable.providerId, schema.providersTable.id)
-      )
-      .innerJoin(
-        schema.productCategoriesTable,
-        eq(schema.offersTable.pcAddressId, schema.productCategoriesTable.id)
-      )
-      .$dynamic();
+  async getDetailFiles(cids: string[]) {
+    return await this.client
+      .select()
+      .from(schema.detailFilesTable)
+      .where(or(...cids.map((cid) => eq(schema.detailFilesTable.cid, cid))));
   }
 
   /**
-   * Gets one product category info stored in the database.
+   * Gets product category info stored in the database.
    */
-  async getProductCategory(
-    address: Address
-  ): Promise<schema.DbProductCategory | undefined>;
-  /**
-   * Gets all product categories in the database
-   * @param address
-   */
-  async getProductCategory(
-    address?: Address
-  ): Promise<schema.DbProductCategory[]>;
-  async getProductCategory(
-    address?: Address
-  ): Promise<
-    schema.DbProductCategory | schema.DbProductCategory[] | undefined
-  > {
-    const pcs = await this.client
+  async getProductCategory(address: Address) {
+    const [pc] = await this.client
       .select()
       .from(schema.productCategoriesTable)
-      .where(
-        and(
-          address !== undefined
-            ? eq(schema.productCategoriesTable.address, address?.toLowerCase())
-            : undefined
-        )
-      );
+      .where(eq(schema.productCategoriesTable.address, address?.toLowerCase()));
 
-    if (address) {
-      return pcs[0];
-    }
-    pcs;
-  }
-
-  async getAllOffersOfProvider(
-    providerIdOrAddress: number | Address,
-    pcAddress?: Address
-  ): Promise<DbOffer[]> {
-    const offers = await this.offerQuery().where(
-      and(
-        typeof providerIdOrAddress === "string"
-          ? eq(
-              schema.providersTable.ownerAddress,
-              providerIdOrAddress.toLowerCase()
-            )
-          : eq(schema.providersTable.id, providerIdOrAddress),
-        pcAddress
-          ? eq(schema.productCategoriesTable.address, pcAddress.toLowerCase())
-          : undefined
-      )
-    );
-
-    return offers;
-  }
-
-  async getOffer(id: number, pcAddress: Address): Promise<DbOffer | undefined> {
-    const pc = await this.getProductCategory(pcAddress);
-
-    if (!pc) {
-      return;
-    }
-
-    const [offer] = await this.client
-      .select()
-      .from(schema.offersTable)
-      .where(
-        and(
-          eq(schema.offersTable.id, id),
-          eq(schema.offersTable.pcAddressId, pc.id)
-        )
-      );
-
-    return {
-      id: offer.id,
-      deploymentParams: offer.deploymentParams,
-      details: offer.details,
-      productCategory: pcAddress,
-    };
-  }
-
-  /**
-   * Retrieve all of the details about the provider itself
-   */
-  async getProviderDetails(
-    providerIdOrAddress: Address | number
-  ): Promise<ProviderDetails | undefined> {
-    const [result] = await this.client
-      .select()
-      .from(schema.providersTable)
-      .where(
-        typeof providerIdOrAddress === "string"
-          ? eq(
-              schema.providersTable.ownerAddress,
-              providerIdOrAddress.toLowerCase()
-            )
-          : eq(schema.providersTable.id, providerIdOrAddress)
-      );
-
-    if (!result) {
-      return;
-    }
-
-    return result.details;
+    return pc;
   }
 
   /**
@@ -370,7 +263,28 @@ class Database {
     });
   }
 
-  async saveProvider(id: number, details: any, ownerAddress: Address) {
+  async saveDetailFiles(contents: string[]) {
+    const values: schema.DbDetailFileInsert[] = [];
+
+    for (const content of contents) {
+      const cid = await generateCID(content);
+      values.push({
+        cid: cid.toString(),
+        content: content,
+      });
+    }
+
+    await this.client.transaction(async (tx) => {
+      await tx.delete(schema.detailFilesTable);
+
+      await tx
+        .insert(schema.detailFilesTable)
+        .values(values)
+        .onConflictDoNothing();
+    });
+  }
+
+  async upsertProvider(id: number, detailsLink: string, ownerAddress: Address) {
     ownerAddress = ownerAddress.toLowerCase() as Address;
     await this.client.transaction(async (tx) => {
       const [existingProvider] = await tx
@@ -383,82 +297,64 @@ class Database {
           )
         );
 
+      const [detailFile] = await tx
+        .select({
+          id: schema.detailFilesTable.id,
+        })
+        .from(schema.detailFilesTable)
+        .where(eq(schema.detailFilesTable.cid, detailsLink));
+
+      if (!detailFile) {
+        throw new Error(
+          `Details file not found for Provider ${id}. Please be sure you've placed the details of the provider into "data/details/[filename].json"`
+        );
+      }
+
       if (existingProvider) {
+        // TODO: Update provider
         return;
       }
 
       await tx.insert(schema.providersTable).values({
         id,
-        details,
         ownerAddress: ownerAddress,
-      });
-    });
-  }
-
-  async saveOffer(
-    id: number,
-    providerId: number,
-    pcAddress: Address,
-    deploymentParams: any,
-    details: any
-  ) {
-    pcAddress = pcAddress.toLowerCase() as Address;
-    await this.client.transaction(async (tx) => {
-      const [pc] = await tx
-        .select()
-        .from(schema.productCategoriesTable)
-        .where(eq(schema.productCategoriesTable.address, pcAddress));
-
-      if (!pc) {
-        throw new Error(
-          `Product category not found in the database: ${pcAddress}`
-        );
-      }
-
-      const [existingOffer] = await tx
-        .select()
-        .from(schema.offersTable)
-        .where(
-          and(
-            eq(schema.offersTable.id, id),
-            eq(schema.offersTable.pcAddressId, pc.id)
-          )
-        );
-
-      if (existingOffer) {
-        return;
-      }
-
-      await tx.insert(schema.offersTable).values({
-        details,
-        deploymentParams,
-        id,
-        pcAddressId: pc.id,
-        providerId,
       });
     });
   }
 
   /**
    * Saves a product category to the database.
-   * Does nothing if it is already saved.
    * @param address Smart contract address of the product category.
    */
-  async saveProductCategory(address: Address, details: any) {
-    address = address.toLowerCase() as Address;
+  async upsertProductCategory(address: Address, detailsLink: any) {
     await this.client.transaction(async (tx) => {
-      const [existingPc] = await tx
+      const [pc] = await tx
         .select()
         .from(schema.productCategoriesTable)
-        .where(eq(schema.productCategoriesTable.address, address));
+        .where(
+          eq(schema.productCategoriesTable.address, address.toLowerCase())
+        );
 
-      if (existingPc) {
+      const [detailFile] = await tx
+        .select({
+          id: schema.detailFilesTable.id,
+        })
+        .from(schema.detailFilesTable)
+        .where(eq(schema.detailFilesTable.cid, detailsLink));
+
+      if (!detailFile) {
+        throw new Error(
+          `Details file not found for Product Category ${address}. Please be sure you've placed the details of the Product Category into "data/details/[filename]"`
+        );
+      }
+
+      // TODO: Update PC
+      if (pc) {
         return;
       }
 
       await tx.insert(schema.productCategoriesTable).values({
-        details,
-        address,
+        address: address.toLowerCase(),
       });
     });
   }

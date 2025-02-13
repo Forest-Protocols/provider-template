@@ -32,7 +32,7 @@ export const logger = createLogger({
           const formatted = [
             `${info.timestamp}`,
             levelColor.bold(info.level.toUpperCase()),
-            ansis.yellow(" ".repeat(8 - info.level.length)),
+            " ".repeat(8 - info.level.length),
             config.NODE_ENV == "dev" && info.stack
               ? levelColor(
                   `${info.message}${(info.stack as string[]).join("\n")}`

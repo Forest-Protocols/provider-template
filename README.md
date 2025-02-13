@@ -1,139 +1,342 @@
-# Machine Translation
+# Create a new Product Category
 
-## Description
+Forest Protocols consists of a multitude of Product Categories that are incentivized to accelerate digital innovation and prove their worth to the users by building in-demand services. Every digital service can become a Product Category within Forest Protocols. The diversity of Product Categories together with Protocol's inherent interoperability is what adds up to its strength.
 
-This product category aims to offer high quality translations from different languages pairs with basic and widely spreaded methods as detect, translated and get a list of supported languages
+The Protocol is permissionless and everyone is allowed to create a new Product Category.
 
-## Basic Info
+This repository contains instructions and code templates for innovators who want to create their own Product Categories, grow them and earn passive income. What is required of a potential Product Category Owner is to:
 
-|                               |                                   |
-| ----------------------------- | --------------------------------- |
-| Software Stack / Service Type | `Machine Translation`             |
-| Software Version (optional)   | `N/A`                             |
-| PC Smart Contract Address     | `{SC Address}`                    |
-| PC Registration Date          | `{Date of Registration}`          |
-| PC Owner Website              | [link](https://{domain}/)         |
-| PC Owner Contact Info         | [e-mail](mailto:owner@domain.com) |
-| PC Owner Wallet Address       | `{Wallet Address}`                |
+1. [Fork and edit the repository](#1-fork-and-edit-the-repository),
+2. [Registering in the Protocol](#2-registering-in-the-protocol),
+   1. [Register as a Product Category Owner](#21-register-as-a-product-category-owner),
+   2. [Register a New Product Category](#22-register-a-new-product-category),
+3. [Prepare the README file for Users and Providers](#3-prepare-the-readme-file-for-users-and-providers).
+4. [Grow Your Product Category by Onboarding Providers, Validators and Users](#4-grow-your-product-category).
 
-## Offer Specification
+## Quickstart
 
-Each Offer in this Product Category must include the following properties:
-|Name|Units|Description|
-|-|-|-|
-|Region (optional, service endpoints)|`[Global(default), Americas, Asia Pacific, Europe eth.]`|The region from where the machine translation server will send translated text back.|
+As a Product Category Owner you want to make life easy on Providers that will be adding offers to your PC and servicing clients. That's why you need to create a Provider Template that each Provider will be running to cater to its clients. We have already implemented all of the Protocol level functionality. The only thing you need to do is to define the Product Category specific code.
 
-## Configuration Parameters [TODO]
+### 1. Fork and edit the repository
 
-This Product Category has the following configuration. These are enforced by the logic of the on-chain smart contract.
-| | |  
-|----------------|-------------------------------|
-|Maximum Number of Validators|`{maxNumValidators}`|
-|Maximum Number of Providers|`{maxNumProviders}`|
-|Validator Registration Fee|`{valRegistrationFee}` FOREST tokens|
-|Provider Registration Fee|`{provRegistrationFee}` FOREST tokens|
-|Resource Registration Fee|`{resourceRegistrationFee}` FOREST tokens|
-|Update Delay for Terms Change|`{termsUpdateDelay}` blocks|
-|Validators Share of Emissions|`{rewardsSplit_validators}` %|
-|Providers Share of Emissions|`{rewardsSplit_providers}` %|
-|PC Owner Share of Emissions|`{rewardsSplit_pcOwner}` %|
-|Performance Optimization Weight |`{opWeight_performance}`%|
-|Price Optimization Weight|`{opWeight_price}`%|
-|Price-to-Performance Optimization Weight|`{opWeight_ptp}`%|
-|Popularity Optimization Weight|`{opWeight_popularity}`%|
-|Hash of the Details File|`{CID}`|
+Fork this repository and clone it locally. Open the `src/product-category/base-provider.ts` file. The first step is to define the details each resource will have. At the beginning of the file, there is a type definition named `ExampleProductDetails`, which specifies the attributes stored in the daemon's database for each resource in this Product Category.
 
-You can always double-check the on-chain values e.g. [here](https://etherscan.io/address/{SC Address}#readContract)
+Details of a resource are most likely the data that would be useful for the Users to see or the configuration that has to be used internally in order to handle the resource. They can be accessible by Users unless you prefix the detail name with `_`. For instance, these details might include connection strings for a Database resource or endpoints and API keys for an API service resource.
 
-## Tests and Quality Thresholds [TODO]
+Rename the type to match your product and edit the fields accordingly. An example type definition for the SQLite Product Category is shown below:
 
-The Validators are performing a number of tests on Resources to ensure quality across the board. Below is a list of checked Benchmarks:
-|Name|Units| Threshold Value| Min / Max|  
-|-|-|-|-|
-|{Test Name 1}|`{Units}`|`{Value}`|{Min / Max}|
-|{Test Name 2}|`{Units}`|`{Value}`|{Min / Max}|
-|{Test Name 3}|`{Units}`|`{Value}`|{Min / Max}|
-...
+```typescript
+export type SQLiteDatabaseDetails = ResourceDetails & {
+  // Fields should use PascalCase with underscores for spaces
+  Size_MB: number; // Database file size in MB
 
-More in-depth descriptions of the Tests:
-|Name|Description|  
-|-|-|
-|{Test Name 1}|{Long form description}|
-|{Test Name 2}|{Long form description}|
-|{Test Name 3}|{Long form description}|
-...
-
-## Become a Provider
-
-#### Step-by-step instructions
-
-In order to start providing services for this Product Category you need to:
-
-1. Create a Provider class that inherits from `BaseMachineTranslationProvider` and implement all of the abstract methods (take a look at the diagram below for more information).
-2. Enable that Provider class by adding it inside `providers` object inside `src/index.ts` (by default only one provider enabled in the daemon, named `main`)
-3. Define information about the Provider inside `data/providers.json`. You can refer to `data/providers.json.example`.
-4. Install Forest Protocols CLI by following these instructions: [link](https://github.com/forest-protocols/cli....)
-5. Using the CLI register in the Protocol as a Provider:
-   - `TODO: Write related CLI commands`
-6. Using the CLI register in this Product Category:
-   - `TODO: Write related CLI commands`
-7. Run the Provider daemon.
-8. Using the CLI register your offers on-chain and Provider's database:
-   - `TODO: Write related CLI commands`
-
-#### Provider Class Hierarchy
-
-Your Provider class must inherit from this Product Category's base Provider class, `BasePostgreSQLDatabaseProvider`. This class design unifies the way all Providers, Users and Validators communicate.
-
-```mermaid
-classDiagram
-	class YourProvider {
-	}
-	class BaseMachineTranslationProvider   {
-
-        <<abstract class>>
-        +abstract languages(): SupportedLanguages;
-        +abstract translate( options: source?: string; target: string; text: string;): TranslateResponse~
-        +abstract detect(text: string): DetectResponse~
-	}
-	class  AbstractProvider~DetailsType=ResourceDetails~  {
-		<<abstract class>>
-		account?: Account
-		pipe?: XMTPPipe
-		marketplace: Marketplace
-
-		+init(providerTag: string) void
-		+abstract create(agreement: Agreement, offer: DbOffer)* Promise~DetailsType~
-		+abstract getDetails(agreement: Agreement, resource: Resource)* Promise~DetailsType~
-		+abstract delete(agreement: Agreement, resource: Resource)* Promise~DetailsType~
-	}
-
-	class ResourceDetails {
-		<<type or interface>>
-		status: DeploymentStatus
-		[fieldName: string]: any
-	}
-
-	class MachineTranslationDetails {
-		<<type or interface>>
-	}
-
-		BaseMachineTranslationProvider  <|--  AbstractProvider~MachineTranslationDetails~  :  inherits
-	YourProvider  <|-- BaseMachineTranslationProvider  : inherits and implements abstract methods
-	MachineTranslationDetails  <|-- ResourceDetails : extends
+  // Fields starting with an underscore are for internal use only and won't be seen by the Users.
+  _fileName: string; // SQLite database file name
+};
 ```
 
-## Become a Validator [TODO]
+Once you have defined the details type, update the `BaseExampleProductProvider` abstract class to define this product's supported methods / functionality. This is a set of actions that Users can request your Providers to complete if they have an active Agreement for a service in your PC. All Providers within this Product Category must implement all functions you define in this class. Rename the class to reflect your product. For example:
 
-#### Step-by-step instructions
+```typescript
+export abstract class BaseSQLiteDatabaseProvider extends AbstractProvider<SQLiteDatabaseDetails> {
+  /**
+   * Defines the product's functionality. All functions below
+   * must be implemented by Providers in this Product Category.
+   */
 
-In order to start providing validation services for this Product Category you need to:
+  /**
+   * Executes the given SQL query on the database.
+   *
+   * @param resource Resource information stored in the database.
+   * @param query SQL query to execute.
+   */
+  abstract sqlQuery(resource: Resource, query: string): Promise<any[]>;
+}
+```
 
-1. Run your Validator Node based on the code from this repository. Detailed instructions here: [link](https://github.com/this_repo/validator/README.md)
-2. Install a Forest Protocols CLI by following these instructions: [link](https://github.com/forest-protocols/cli....)
-3. Using the CLI register in the Protocol as a Validator:
-   a. `command 1`
-   b. `command 2`
-4. Using the CLI register in our Product Category:
-   a. `command 1`
-   b. `command 2`
+After defining your product's functionalities (e.g., `sqlQuery`), you need to create "Pipe" endpoints to allow Users to invoke these functions.
+
+> "**_Pipe_**" is a simple abstraction layer for HTTP-like request-response communication between participants. The current Pipe implementation is built on [XMTP](https://xmtp.org/) for fully decentralized communication within the Protocol.
+
+Define these endpoints in the `init()` method. For example:
+
+```typescript
+async init(providerTag: string) {
+    // Call the base class' `init` function
+    await super.init(providerTag);
+
+    // TODO: Implement your Pipe endpoints
+
+    /**
+     * @param 1:
+     *  Pipe endpoints can be defined for different methods such as POST, PUT, DELETE, etc.
+     *  You can follow the traditional REST pattern to determine which method to use.
+     * @param 2:
+     *  Path of the endpoint. Clients/users send their requests to this endpoint
+     *  to invoke the `sqlQuery` method.
+     * @param 3:
+     *  Actual handler function that processes the request.
+     */
+    this.route(PipeMethod.GET, "/query", async (req) => {
+        /**
+         * In route handler functions, all errors are automatically handled
+         * with an "Internal server error" response. If the thrown error
+         * is an instance of `PipeError`, the response will use values provided
+         * by this error.
+         */
+
+        /**
+         * Parameters can be extracted from `req.body` or `req.params`.
+         * Here, we use `req.body`.
+         *
+         * We validate the body params using [Zod](https://zod.dev/)
+         * to ensure they conform to the expected schema.
+         */
+        const body = validateBodyOrParams(req.body, z.object({
+            id: z.number(), // Resource ID
+            pc: addressSchema, // Product Category address
+            query: z.string(), // SQL query
+        }));
+
+        /**
+         * Retrieve the resource from the daemon's database using `getResource`.
+         * If the resource is not found, an error is thrown automatically,
+         * and the request returns a "Not Found" error.
+         *
+         * This method also checks resource ownership. If the requester is
+         * not the resource owner, the resource will not be found in the database.
+         * Even if the return value is not used, calling this method ensures
+         * authorization.
+         */
+        const { resource } = await this.getResource(
+          body.id,
+          body.pc as Address,
+          req.requester
+        );
+
+        // Execute the SQL query with the provided arguments
+        const result = await this.sqlQuery(resource, body.query);
+
+        // Return the response
+        return {
+          code: PipeResponseCode.OK,
+          body: result,
+        };
+    });
+}
+```
+
+Once you are done with defining the abstract class, navigate to `src/product-category/provider.ts` and add a boilerplate implementation for your base class. For example:
+
+```typescript
+/**
+ * The main class that implements Provider specific actions.
+ * @responsible Provider
+ */
+export class MainProviderImplementation extends BaseExampleProductProvider {
+  // Other abstract functions...
+
+  async sqlQuery(resource: Resource, query: string): Promise<any[]> {
+    /**
+     * TODO: Implement how to execute an SQL query within the database.
+     * This function should process the query and return results accordingly.
+     */
+    throw new Error("Method not implemented.");
+  }
+}
+```
+
+### 2. Registering in the Protocol
+
+#### 2.1 Register as a Product Category Owner
+
+All Actors such as Product Category Owners, Providers and Validators need to register in the Protocol and pay the registration fee before they can start any type of interactions.
+
+**TESTNET NOTE**: if you need testnet tokens reach out to the Forest Protocols team on [Discord](https://discord.gg/8F8V8gEgua).
+
+1. Create a JSON detail file in the following schema and save it somewhere:
+
+```json
+{
+  "name": "<Name, will be visible to users>",
+  "description": "<[Optional] Description>",
+  "homepage": "<[Optional] Homepage address>"
+}
+```
+
+2. Create a set of pub / priv keys using an EVM-compatible wallet.
+3. Take that account's private key and save it to a file.
+4. Put the JSON file and that private key file into the same folder.
+5. Open up a terminal in that folder.
+   > If you are planning to use different accounts for billing and operating, you need to pass additional flags: `--billing <address>` and `--operator <address>`. This separation increases security of your configuration. Setting a billing address allows for having a separate address / identity for claiming your earnings and rewards while setting an operator allows you to delegate the operational work of running a daemon and servicing user requests to a third-party or a hotkey. If you don't need that, just skip those flags and the logic of the Protocol will use your main address as your billing and operator address.
+6. Run the following command:
+   ```sh
+    forest register pco \
+        --details <JSON file name> \
+        --account <private key file>
+   ```
+7. Save your detail file into `data/details` folder.
+
+#### 2.2 Register a New Product Category
+
+Each Product Category is a separate smart contract that is deployed by the Registry main protocol contract. To deploy a new Product Category:
+
+First, you need to create a file containing detailed information about this Product Category. You have two options to do this:
+
+##### **Option 1:** Human-Readable Format
+
+You can create a plain text, Markdown, or any other format with human-readable content, such as the example below:
+
+```
+# Blueprint to 3D Model (Sketch to 3D)
+
+## Goal
+
+This subnet aims to convert blueprints, hand-drawn sketches, or simple CAD drawings into detailed 3D models. The goal is to enable quick visualization of architectural, product, or mechanical designs.
+
+## Evaluation
+
+Responses will be evaluated based on:
+
+✅ Structural Accuracy: The 3D model should correctly represent the original sketch.
+✅ Rendering Quality: The model should be free of graphical artifacts.
+✅ Material & Texture Fidelity: If provided, material properties should be correctly applied.
+........
+```
+
+##### **Option 2:** Structured JSON
+
+Alternatively, you can create a JSON file following the type definitions below. With this approach, the details of this Product Category will be visible in the CLI and Marketplace. Additionally, all Offers registered by Providers in this Product Category must set all the parameters defined in the JSON file.
+
+> These are pseudo-type definitions to illustrate the JSON schema.
+
+```typescript
+type ProductCategoryDetails = {
+  /* Descriptive name of the Product Category */
+  name: string;
+
+  /* The tests will be doing by the Validators */
+  tests: any[];
+
+  /* Software/Type of the Product Category such as "Database", "VM" or "API Service" etc. */
+  softwareStack?: string;
+
+  /* Version of the Product that is going to be served in this Product Category */
+  version?: string;
+
+  /* The parameters that each Offer which registered in this PC has to include */
+  offerParams: {
+    /* Visible name of the parameter */
+    name: string;
+
+    /*
+     * For numeric values, it is a string which specifies
+     * the unit of that number, otherwise possible
+     * values for the field.
+     */
+    unit: string | string[];
+
+    /* Priority of the Offer param in the Marketplace filter list */
+    priority?: number;
+
+    /* Defines is this Offer param can be filterable in Marketplace */
+    isFilterable?: boolean;
+
+    /* Defines is this Offer param is a primary info or not */
+    isPrimary?: boolean;
+  }[];
+};
+```
+
+An example JSON file based on these type definitions:
+
+```json
+{
+  "name": "PostgreSQL",
+  "softwareStack": "Database",
+  "tests": [],
+  "offerParams": [
+    {
+      "name": "CPU",
+      "unit": "Cores",
+      "priority": 100,
+      "isPrimary": true
+    },
+    {
+      "name": "RAM",
+      "unit": "GB",
+      "priority": 90,
+      "isPrimary": true
+    },
+    {
+      "name": "Disk Type",
+      "unit": ["SSD", "HDD", "M2"],
+      "priority": 80,
+      "isPrimary": true
+    },
+    {
+      "name": "Disk Size",
+      "unit": "GB",
+      "priority": 70
+    },
+    {
+      "name": "Virtualization",
+      "unit": ["VM", "Container"],
+      "priority": 60
+    },
+    {
+      "name": "CPU Architecture",
+      "unit": ["x86", "ARM"]
+    },
+    {
+      "name": "Isolation",
+      "unit": ["Shared", "Dedicated"],
+      "isFilterable": false,
+      "priority": 40
+    }
+  ]
+}
+```
+
+2. Save it at `data/details/[file name]` in your forked Provider Template repository.
+
+```sh
+forest product-category create \
+  --details <details file path> \
+  --account <private key file path OR private key itself of the PCO account> \
+  --max-validator 10 \
+  --max-provider 10 \
+  --min-collateral 10 \
+  --validator-register-fee 5 \
+  --provider-register-fee 3 \
+  --offer-register-fee 2 \
+  --term-update-delay 400 \
+  --provider-share 45 \
+  --validator-share 45 \
+  --pco-share 10
+```
+
+#### Explanation of Command Flags
+
+| Flag                       | Description                                                      |
+| -------------------------- | ---------------------------------------------------------------- |
+| `--max-validator`          | Maximum number of Validators that can be registered.             |
+| `--max-provider`           | Maximum number of Providers that can be registered.              |
+| `--min-collateral`         | Minimum FOREST token collateral required for a registration.     |
+| `--validator-register-fee` | Registration fee (FOREST token) for Validators.                  |
+| `--provider-register-fee`  | Registration fee (FOREST token) for Providers.                   |
+| `--offer-register-fee`     | Fee for Providers to register a new Offer.                       |
+| `--term-update-delay`      | Minimum block count before Providers can close agreements.       |
+| `--provider-share`         | Percentage of emissions allocated to Providers.                  |
+| `--validator-share`        | Percentage of emissions allocated to Validators.                 |
+| `--pco-share`              | Percentage of emissions allocated to the Product Category Owner. |
+
+### 3. Prepare the README file for Users and Providers
+
+Now you need to create a human-readable specification of your Product Category. You have total freedom to shape this document in a way you think is best. However we provide two templates for inspiration (`README_template_1.md`: [here](./README_template_1.md)) and (`README_template_2.md`: [here](./README_template_2.md)). Rename the chosen file to `README.md` (this will override this, but that's fine).
+
+From now on the `README.md` will include basic information about your PC that might be interesting to Users. It also links to a Provider tutorial on how to easily integrate with your Product Category. So the last thing you need to do is customize the information by filling out the missing parts in your PC's `README.md` as well as in the `README_Become_a_Provider.md`.
+
+### 4. Grow Your Product Category
+
+Congratulations! You have registered in the Protocol and created your Product Category. Now, publish your Provider Template and inform potential Providers and Validators on how to participate in your Product Category.

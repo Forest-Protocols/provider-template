@@ -18,3 +18,19 @@ export function parseDatabaseConnectionString(connectionString: string) {
     Hostname: match.groups?.host,
   };
 }
+
+export function tryParseJSON(
+  content: any,
+  returnContentInFail: false
+): any | undefined;
+export function tryParseJSON(
+  content: any,
+  returnContentInFail?: undefined
+): any;
+export function tryParseJSON(content: any, returnContentInFail?: boolean): any {
+  try {
+    return JSON.parse(content);
+  } catch {
+    if (returnContentInFail !== false) return content;
+  }
+}

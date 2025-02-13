@@ -3,14 +3,14 @@ import {
   BaseMachineTranslationProvider,
   MachineTranslationDetails,
 } from "./base-provider";
-import { DbOffer, Resource } from "@/types";
+import { DetailedOffer, Resource } from "@/types";
 
 /**
  * The main class that implements provider specific actions.
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
-  async checkCallLimit(resource: Resource, offer: DbOffer): Promise<any> {
+  async checkCallLimit(resource: Resource, offer: DetailedOffer): Promise<any> {
     /**
      * TODO: Implement how the resource will be created.
      */
@@ -21,39 +21,46 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
 
   async create(
     agreement: Agreement,
-    offer: DbOffer,
+    offer: DetailedOffer,
   ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be created.
      */
-    // If there is no additional action need for the deletion, you can
-    // just leave this method as empty.
+    // If there is no additional action need for creation, you can
+    // just leave this method as empty and return mandatory details:
+    /*  return {
+      status: DeploymentStatus.Running,
+      _examplePrivateDetailWontSentToUser: "string data",
+      Example_Detail: 42,
+    }; */
+
     throw new Error("Method not implemented.");
   }
 
   async getDetails(
     agreement: Agreement,
+    offer: DetailedOffer,
     resource: Resource,
   ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the details retrieved from the resource source.
      */
-
-    // If there is no details, you can just return the existing details;
-    // return resource.details;
+    // If there is no details, you can just return the existing ones;
+    /* return {
+      ...resource.details,
+      status: resource.deploymentStatus,
+    }; */
     throw new Error("Method not implemented.");
   }
 
   async delete(
     agreement: Agreement,
+    offer: DetailedOffer,
     resource: Resource,
-  ): Promise<MachineTranslationDetails> {
+  ): Promise<void> {
     /**
      * TODO: Implement how the resource will be deleted.
      */
-
-    // If there is no additional action need for the deletion, you can
-    // just leave this method as empty.
     throw new Error("Method not implemented.");
   }
 
@@ -86,4 +93,3 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
     throw new Error("Method not implemented.");
   }
 }
-

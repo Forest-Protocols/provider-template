@@ -1,5 +1,6 @@
 import {
   DeploymentStatus,
+  Offer,
   OfferDetails,
   PipeRequest,
   PipeRouteHandlerResponse,
@@ -31,26 +32,14 @@ export type Resource = {
   groupName: string;
   isActive: boolean;
   ownerAddress: Address;
-  offer: {
-    id: number;
-    details: any;
-    productCategory: Address;
-    provider: {
-      id: number;
-      details: any;
-      ownerAddress: Address;
-    };
-  };
+  offerId: number;
+  providerId: number;
+  providerAddress: Address;
+  pcAddress: Address;
 };
 
-/**
- * Offer related data stored in the database.
- */
-export type DbOffer = {
-  id: number;
-  deploymentParams: any;
-  details: OfferDetails;
-  productCategory: Address;
+export type DetailedOffer = Offer & {
+  details?: OfferDetails | string;
 };
 
 export type ProviderPipeRouteHandler = (

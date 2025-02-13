@@ -2,6 +2,7 @@
 import {
   Agreement,
   DeploymentStatus,
+  Offer,
   ProductCategoryABI,
   Status,
 } from "@forest-protocols/sdk";
@@ -17,6 +18,9 @@ import {
   colors,
   uniqueNamesGenerator,
 } from "unique-names-generator";
+import { join } from "path";
+import { readdirSync, readFileSync, statSync } from "fs";
+import { tryParseJSON } from "./utils";
 import { MachineTranslationProvider } from "./product-category/provider";
 
 async function sleep(ms: number) {
@@ -38,37 +42,90 @@ class Program {
     main: new MachineTranslationProvider(),
   };
 
-  productCategories: string[] = [];
+  listenedPCAddresses: string[] = [];
 
   constructor() {}
 
+  async init() {
+    // Load detail files into the database
+    logger.info("Detail files are loading to the database");
+    const basePath = join(process.cwd(), "data/details");
+    const files = readdirSync(basePath, { recursive: true }).filter((file) =>
+      // Exclude sub-directories
+      statSync(join(basePath, file.toString()), {
+        throwIfNoEntry: false,
+      })?.isFile()
+    );
+    const contents = files.map((file) =>
+      readFileSync(join(basePath, file.toString())).toString("utf-8")
+    );
+    await DB.saveDetailFiles(contents);
+
+    // Initialize providers
+    for (const [tag, provider] of Object.entries(this.providers)) {
+      logger.info(`Provider "${tag}" initializing`);
+      await provider.init(tag);
+
+      // Fetch detail links of the Product Categories
+      logger.info(`Checking Product Categories of "${tag}"`);
+      const pcs = await Promise.all(
+        Object.keys(provider.pcClients).map(async (address) => ({
+          address,
+          detailsLink: await provider.pcClients[address].getDetailsLink(),
+        }))
+      );
+
+      // Save PCs to the database
+      for (const pc of pcs) {
+        this.listenedPCAddresses.push(pc.address);
+        await DB.upsertProductCategory(pc.address as Address, pc.detailsLink);
+      }
+
+      logger.info(
+        `Provider initialized; tag: ${tag}, address: ${ansis.yellow.bold(
+          provider.actorInfo.ownerAddr
+        )}`
+      );
+    }
+
+    // Delete duplicated addresses
+    this.listenedPCAddresses = [...new Set(this.listenedPCAddresses)];
+
+    // Check agreement balances at startup then in every minute
+    this.checkAgreementBalances();
+    setInterval(() => this.checkAgreementBalances(), 60 * 1000);
+  }
+
   async processAgreementCreated(
     agreement: Agreement,
+    offer: Offer,
     pcAddress: Address,
     provider: AbstractProvider
   ) {
     try {
-      const offer = await DB.getOffer(agreement.offerId, pcAddress);
+      const [offerDetailFile] = await DB.getDetailFiles([offer.detailsLink]);
 
-      if (!offer) {
-        logger.error(
-          `Offer ${agreement.offerId} is not found in product category ${pcAddress} for provider ${provider.actorInfo.ownerAddr}`
+      if (!offerDetailFile) {
+        logger.warning(
+          `Details file is not found for Offer ${agreement.offerId}@${pcAddress} (Provider ID: ${provider.actorInfo.id})`
         );
-
-        // Since the offer is not found in the database, we cannot save
-        // this resource as a failed deployment.
-        return;
       }
 
-      // No need to check existence, because we have already checked the offer.
-      const productCategory = (await DB.getProductCategory(pcAddress))!;
-      const details = await provider.create(agreement, offer);
+      const productCategory = await DB.getProductCategory(pcAddress);
+      const detailedOffer = {
+        ...offer,
+
+        // TODO: Validate schema
+        // If it is a JSON file, try to parse details, if not don't use undefined
+        details: tryParseJSON(offerDetailFile?.content, false),
+      };
+      const details = await provider.create(agreement, detailedOffer);
 
       await DB.createResource({
         id: agreement.id,
         deploymentStatus: details.status,
 
-        // If the name is not defined by the provider, just give a random name
+        // If the name is not returned by the provider, just give a random name
         name:
           details.name ||
           uniqueNamesGenerator({
@@ -96,6 +153,7 @@ class Program {
         );
 
         // TODO: Create that interval on startup if there are resources still in "Deploying" state
+
         // Create an interval to keep track of the deployment process
         const interval = setInterval(async () => {
           try {
@@ -117,6 +175,7 @@ class Program {
 
             const resourceDetails = await provider.getDetails(
               agreement,
+              detailedOffer,
               resource
             );
 
@@ -151,8 +210,7 @@ class Program {
       logger.error(`Error while creating the resource: ${err.stack}`);
 
       // Save the resource as failed
-      try {
-        const pc = (await DB.getProductCategory(pcAddress))!;
+      const pc = await DB.getProductCategory(pcAddress);
 
         // Save that resource as a failed deployment
         await DB.createResource({
@@ -165,14 +223,12 @@ class Program {
           ownerAddress: agreement.userAddr,
           details: {},
         });
-      } catch (err: any) {
-        logger.error(`Error while saving the resource as failed: ${err.stack}`);
-      }
     }
   }
 
   async processAgreementClosed(
     agreement: Agreement,
+    offer: Offer,
     pcAddress: Address,
     provider: AbstractProvider
   ) {
@@ -183,7 +239,22 @@ class Program {
         pcAddress
       );
       if (resource) {
-        await provider.delete(agreement, resource);
+        const [offerDetailFile] = await DB.getDetailFiles([offer.detailsLink]);
+
+        if (!offerDetailFile) {
+          logger.warning(
+            `Details file is not found for Offer ${agreement.offerId}@${pcAddress} (Provider ID: ${provider.actorInfo.id})`
+          );
+        }
+
+        await provider.delete(
+          agreement,
+          {
+            ...offer,
+            details: tryParseJSON(offerDetailFile?.content, false),
+          },
+          resource
+        );
         logger.info(
           `Resource of agreement ${colorNumber(
             agreement.id
@@ -205,9 +276,7 @@ class Program {
 
   getProductCategoryByAddress(address: Address) {
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [pcAddress, pc] of Object.entries(
-        provider.productCategories
-      )) {
+      for (const [pcAddress, pc] of Object.entries(provider.pcClients)) {
         if (pcAddress == address.toLowerCase()) return pc;
       }
     }
@@ -250,7 +319,7 @@ class Program {
       logger.info(`Processing block ${colorNumber(block.number)}`);
       for (const tx of block.transactions) {
         // If the TX is not belong to any of the product category contracts, skip it.
-        if (!this.productCategories.includes(tx.to?.toLowerCase() || "")) {
+        if (!this.listenedPCAddresses.includes(tx.to?.toLowerCase() || "")) {
           continue;
         }
 
@@ -314,9 +383,19 @@ class Program {
             );
 
             if (event.eventName == "AgreementCreated") {
-              await this.processAgreementCreated(agreement, tx.to!, provider);
+              await this.processAgreementCreated(
+                agreement,
+                offer,
+                tx.to!,
+                provider
+              );
             } else {
-              await this.processAgreementClosed(agreement, tx.to!, provider);
+              await this.processAgreementClosed(
+                agreement,
+                offer,
+                tx.to!,
+                provider
+              );
             }
 
             // Save the TX as processed
@@ -334,38 +413,13 @@ class Program {
     }
   }
 
-  async init() {
-    // Initialize providers
-    for (const [tag, provider] of Object.entries(this.providers)) {
-      await provider.init(tag);
-      this.productCategories.push(
-        ...Object.keys(provider.productCategories).map((address) =>
-          address.toLowerCase()
-        )
-      );
-
-      logger.info(
-        `Provider initialized; tag: ${tag}, address: ${ansis.yellow.bold(
-          provider.account!.address
-        )}`
-      );
-    }
-
-    // Make each item unique
-    this.productCategories = [...new Set(this.productCategories)];
-
-    // Check agreement balances at startup then in every minute
-    this.checkAgreementBalances();
-    setInterval(() => this.checkAgreementBalances(), 60 * 1000);
-  }
-
   async checkAgreementBalances() {
     logger.info("Checking balances of the agreements", { context: "Checker" });
     const closingRequests: Promise<any>[] = [];
 
     // Check all agreements for all providers in all product categories
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [_, pc] of Object.entries(provider.productCategories)) {
+      for (const [_, pc] of Object.entries(provider.pcClients)) {
         const agreements = await pc.getAllProviderAgreements(
           provider.account!.address
         );
