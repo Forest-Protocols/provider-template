@@ -10,13 +10,29 @@ import { DetailedOffer, Resource } from "@/types";
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
-  async checkCallLimit(resource: Resource, offer: DetailedOffer): Promise<any> {
+
+  async checkCallLimit(
+    agreement: Agreement,
+    resource: Resource,
+    offer: DetailedOffer,
+  ): Promise<boolean> {
     /**
-     * TODO: Implement how the resource will be created.
+     * TODO: Implement how to check if the user has exceeded the call limit or not.
+     * A simple implementation is below:
      */
-    // If there is no additional action need for the deletion, you can
-    // just leave this method as empty.
-    throw new Error("Method not implemented.");
+    const details: MachineTranslationDetails = resource.details;
+
+    if (typeof offer.details == "object") {
+      const param = offer.details.params["API Call Limit"];
+
+      // If the param that we are looking for defined as a numerical value
+      if (!Array.isArray(param) && typeof param === "object") {
+        return details.API_Call_Count < param.value;
+      }
+    }
+
+    // If in the Offer details, there is no defined call limit, just use the default one.
+    return details.API_Call_Count < 1000;
   }
 
   async create(

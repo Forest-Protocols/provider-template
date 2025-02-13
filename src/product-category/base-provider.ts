@@ -1,5 +1,7 @@
 import {
   addressSchema,
+  Agreement,
+  PipeError,
   PipeMethod,
   PipeResponseCode,
   validateBodyOrParams,
@@ -7,11 +9,11 @@ import {
 import { AbstractProvider } from "@/abstract/AbstractProvider";
 import { DetailedOffer, Resource, ResourceDetails } from "@/types";
 import { DB } from "@/database/Database";
-import { PipeErrorNotFound } from "@/errors/pipe/PipeErrorNotFound";
 
 import { Address } from "viem";
 import { z } from "zod";
 import { validateBody } from "@/helpers";
+import { tryParseJSON } from "@/utils";
 
 /**
  * The details gathered by the Provider from the resource source.
@@ -20,7 +22,7 @@ import { validateBody } from "@/helpers";
  */
 
 export type MachineTranslationDetails = ResourceDetails & {
-  _apiCallCount: number;
+  API_Call_Count: number;
 };
 
 /**
@@ -35,6 +37,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param offer The offer details that the resource is in use.
    */
   abstract checkCallLimit(
+    agreement: Agreement,
     resource: Resource,
     offer: DetailedOffer,
   ): Promise<boolean>;
@@ -112,16 +115,37 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         req.requester,
       );
 
-      // If resource is not found or not active, throws a not found error.
-      // "Active" means; is the agreement still active on-chain?
-      if (!resource || !resource.isActive) {
-        throw new PipeErrorNotFound("Resource");
+      const offer = await this.getPcClient(body.pc as Address).getOffer(
+        agreement.offerId,
+      );
+
+      const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
+
+      const isAllowed = await this.checkCallLimit(agreement, resource, {
+        ...offer,
+
+        details: tryParseJSON(offerDetails),
+      });
+
+      if (!isAllowed) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "API call limit exceed",
+        });
       }
+
+      await DB.updateResource(resource.id, resource.pcAddress, {
+        details: {
+          ...resource.details,
+          API_Call_Count: resource.details.API_Call_Count + 1,
+        },
+      });
+
+      const result = await this.languages();
 
       return {
         code: PipeResponseCode.OK,
         body: {
-          languages: await this.languages(),
+          languages: result,
         },
       };
     });
@@ -150,15 +174,36 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
 
       const body = validateBody(req.body, bodySchema);
 
-      const resource = await DB.getResource(
+      const { resource, agreement } = await this.getResource(
         body.id,
-        req.requester,
         body.pc as Address,
+        req.requester,
       );
 
-      if (!resource || !resource?.isActive) {
-        throw new PipeErrorNotFound("Resource");
+      const offer = await this.getPcClient(body.pc as Address).getOffer(
+        agreement.offerId,
+      );
+
+      const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
+
+      const isAllowed = await this.checkCallLimit(agreement, resource, {
+        ...offer,
+
+        details: tryParseJSON(offerDetails),
+      });
+
+      if (!isAllowed) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "API call limit exceed",
+        });
       }
+
+      await DB.updateResource(resource.id, resource.pcAddress, {
+        details: {
+          ...resource.details,
+          API_Call_Count: resource.details.API_Call_Count + 1,
+        },
+      });
 
       const result = await this.translate({
         version: body.version,
@@ -190,16 +235,36 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
         pc: addressSchema,
       });
       const body = validateBody(req.body, bodySchema);
-      const resource = await DB.getResource(
+      const { resource, agreement } = await this.getResource(
         body.id,
-        req.requester,
         body.pc as Address,
+        req.requester,
       );
 
-      if (!resource || !resource?.isActive) {
-        throw new PipeErrorNotFound("Resource");
+      const offer = await this.getPcClient(body.pc as Address).getOffer(
+        agreement.offerId,
+      );
+
+      const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
+
+      const isAllowed = await this.checkCallLimit(agreement, resource, {
+        ...offer,
+
+        details: tryParseJSON(offerDetails),
+      });
+
+      if (!isAllowed) {
+        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
+          message: "API call limit exceed",
+        });
       }
 
+      await DB.updateResource(resource.id, resource.pcAddress, {
+        details: {
+          ...resource.details,
+          API_Call_Count: resource.details.API_Call_Count + 1,
+        },
+      });
       const result = await this.detect(body.text);
 
       // Return the response with the results.
