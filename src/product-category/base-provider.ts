@@ -45,67 +45,42 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
   /**
    * Returns the list of languages supported by the provider.
    */
-  abstract languages(): Promise<any>;
+  abstract languages(): Promise<[]>;
 
   /**
-   * Translates the text from the source language to the target language.
-   * @param body for the translation
-   * @param agreement Agreement details
-   * @param resource Resource details
-   * @returns The translated text
+   * method: POST
+   * path: /translate
+   * from (optional) : string -> The source language
+   * to (required) : string -> The target language
+   * text (required) : string -> The text that is going to be translated
+   * @return code and response
    */
 
   abstract translate(body: {
     from?: string;
-    to?: string;
-    key?: string;
+    to: string;
     text: string;
-    version?: string;
-  }): Promise<any>;
+  }): Promise<{
+    code: PipeResponseCode;
+    response: { id: number; text: string; from?: string; to: string };
+  }>;
+
   /**
    * Detects the language of the text.
    * @param text The text that needs to be detected
-   * @param agreement Agreement details
-   * @param resource Resource details
    * @returns The detected language
    **/
   abstract detect(text: string): Promise<any>;
 
   async init(providerTag: string) {
-    // Base class' `init` function must be called.
     await super.init(providerTag);
 
-    /**
-     method: GET,
-     path: /languages,
-     */
-
     this.route(PipeMethod.GET, "/languages", async (req) => {
-      /**
-       * Validates the params/body of the request. If they are not valid
-       * request will reply back to the user with a validation error message
-       * and bad request code automatically.
-       */
-
-      /**
-       * Retrieve the resource from the database.
-       *
-       * IMPORTANT NOTE:
-       * Inside your route handlers, you always need to use `req.requester` when
-       * you retrieve resource from the database. With that approach you can be
-       * sure that the requester is the owner of the resource (because otherwise the resource
-       * won't be found). Basically the authorization stuff. If you want to add more logic
-       * for the authorization (like call limiting etc.) you can do as well next to retrieving resource process.
-       */
-
       const body = validateBodyOrParams(
         req.body,
         z.object({
-          /** ID of the resource. */
           id: z.number(),
-
-          /** Product Category address that the resource created in. */
-          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
+          pc: addressSchema,
         }),
       );
 
@@ -150,25 +125,12 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       };
     });
 
-    /**
-     * method: POST
-     * path: /translate
-     * body: {
-     * source (optional) : string -> The source language
-     * target (required) : string -> The target language
-     * text (required) : string -> The text that is going to be translated
-     * }
-     */
-
     this.route(PipeMethod.POST, "/translate", async (req) => {
-      console.log(req);
       const bodySchema = z.object({
         id: z.number(),
-        text: z.string(),
         from: z.string().optional(),
         to: z.string(),
-        version: z.string().optional(),
-        key: z.string().optional(),
+        text: z.string(),
         pc: addressSchema,
       });
 
@@ -206,11 +168,9 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       });
 
       const result = await this.translate({
-        version: body.version,
         from: body.from,
         to: body.to,
         text: body.text,
-        key: body.key,
       });
 
       return {
@@ -224,9 +184,8 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
     /**
      * method: POST
      * path: /detect
-     * body: {
      * text (required) : string -> The text that is going to be detected
-     * }
+     * @return code and response
      */
     this.route(PipeMethod.POST, "/detect", async (req) => {
       const bodySchema = z.object({

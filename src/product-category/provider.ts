@@ -1,4 +1,4 @@
-import { Agreement } from "@forest-protocols/sdk";
+import { Agreement, PipeResponseCode } from "@forest-protocols/sdk";
 import {
   BaseMachineTranslationProvider,
   MachineTranslationDetails,
@@ -10,7 +10,6 @@ import { DetailedOffer, Resource } from "@/types";
  * @responsible Provider
  */
 export class MachineTranslationProvider extends BaseMachineTranslationProvider {
-
   async checkCallLimit(
     agreement: Agreement,
     resource: Resource,
@@ -80,7 +79,7 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
     throw new Error("Method not implemented.");
   }
 
-  async languages(): Promise<any> {
+  async languages(): Promise<[]> {
     /**
      * TODO: Implement the languages logic here.
      * This method should return the list of languages supported by the provider.
@@ -91,17 +90,18 @@ export class MachineTranslationProvider extends BaseMachineTranslationProvider {
   async translate(body: {
     from?: string;
     to?: string;
-    key?: string;
     text?: string;
-    version?: string;
-  }): Promise<any> {
+  }): Promise<{
+    code: PipeResponseCode;
+    response: { id: number; text: string; from?: string; to: string };
+  }> {
     /**
      * TODO: Implement the translation logic here.
      */
     throw new Error("Method not implemented.");
   }
 
-  async detect(text: string): Promise<any> {
+  async detect(text: string): Promise<unknown> {
     /**
      * TODO: Implement the detect logic here.
      * This method should return the detected language of the text.
