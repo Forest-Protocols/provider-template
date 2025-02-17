@@ -70,7 +70,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
    * @param text The text that needs to be detected
    * @returns The detected language
    **/
-  abstract detect(text: string): Promise<any>;
+  abstract detect(text: string): Promise<unknown>;
 
   async init(providerTag: string) {
     await super.init(providerTag);

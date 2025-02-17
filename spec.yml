@@ -1,0 +1,239 @@
+openapi: 3.0.0
+info:
+  # Command name in CLI. [MUST]
+  x-forest-cli-command: mt
+  # Aliases for the command. [OPTIONAL]
+  x-forest-cli-aliases:
+    - machine-translation
+  title: Machine Translation Product Category
+  description: API for Machine Translation Product Category
+  version: "1.0"
+  license:
+    name: MIT
+paths:
+  /translate:
+    post:
+      x-forest-provider-endpoint: true
+      description: Translates the given text to the target language
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - pc
+                - to
+                - text
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource
+                pc:
+                  type: string
+                  description: Product Category address that the resource created in
+                from:
+                  type: string
+                  description: Source language
+                to:
+                  type: string
+                  description: Target language
+                text:
+                  type: string
+                  description: Text to be translated
+      responses:
+        "200":
+          description: "Source language translation to target language"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      text:
+                        type: string
+                      from:
+                        type: string
+                      to:
+                        type: string
+                  code:
+                    type: number
+                    description: "200 code"
+        "404":
+          description: "Resource not found"
+        "401":
+          description: "Unauthorized"
+  /resources:
+    get:
+      summary: Get one or all of the resources
+      description: Gets one or all resources of the caller. If "id" and "pc" values are not given, retrieves all of the Resources that caller has. Caller must be the owner of those resource(s).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource/agreement
+                pc:
+                  type: string
+                  description: Product Category address
+      responses:
+        "200":
+          description: "Resources"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                    name:
+                      type: string
+                    deploymentStatus:
+                      type: string
+                      enum:
+                        - Running
+                        - Deploying
+                        - Closed
+                        - Unknown
+                        - Failed
+                    details:
+                      type: object
+                    groupName:
+                      type: string
+                    isActive:
+                      type: boolean
+                    ownerAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+                    offerId:
+                      type: number
+                    providerId:
+                      type: number
+                    providerAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+                    pcAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+        "404":
+          description: "Resource not found"
+  /details:
+    get:
+      summary: Gets the detail file(s)
+      description: Gets the detail files for the given CIDs if they there are in this operator
+      requestBody:
+        description: CIDs of the desired detail files
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        "200":
+          description: Returns the file contents. If the CID is not found, it won't be included in the response array
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "404":
+          description: If one CID is given and it is not found
+  /detect:
+    post:
+      summary: Detects the language of the given text
+      x-forest-provider-endpoint: true
+      description: Detects the language of the given text and returns the language code/language name
+      requestBody:
+        description: Text to be detected
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - pc
+                - text
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource
+                pc:
+                  type: string
+                  description: Product Category address that the resource created in
+                text:
+                  type: string
+                  description: Text to be detected
+      responses:
+        "200":
+          description: "Detected language"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: number
+                    description: "200 code"
+                  response:
+                    type: object
+                    properties:
+                      id:
+                        type: number
+                      text:
+                        type: string
+        "401":
+          description: "Unauthorized"
+        "404":
+          description: "Resource not found"
+  /languages:
+    get:
+      summary: Get the supported languages
+      x-forest-provider-endpoint: true
+      description: Get the supported list of languages
+      requestBody:
+        description: "Get the supported list of languages"
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - pc
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource
+                pc:
+                  type: string
+                  description: Product Category address that the resource created in
+      responses:
+        "200":
+          description: "Detected language"
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: number
+                    description: "200 code"
+                  response:
+                    type: array
+        "401":
+          description: "Unauthorized"
+        "404":
+          description: "Resource not found"
