@@ -27,6 +27,8 @@ import {
   XMTPPipe,
 } from "@forest-protocols/sdk";
 import { red, yellow } from "ansis";
+import { readFileSync, statSync } from "fs";
+import { join } from "path";
 import { Account, Address } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
@@ -132,6 +134,39 @@ export abstract class AbstractProvider<
       );
 
       // Setup operator specific endpoints
+
+      this.operatorRoute(PipeMethod.GET, "/spec", async (req) => {
+        try {
+          const possibleSpecFiles = [
+            "spec.yaml",
+            "spec.json",
+            "oas.json",
+            "oas.yaml",
+          ];
+          for (const specFile of possibleSpecFiles) {
+            const path = join(process.cwd(), "data", specFile);
+            const stat = statSync(path, { throwIfNoEntry: false });
+
+            if (stat && stat.isFile()) {
+              const content = readFileSync(path, {
+                encoding: "utf-8",
+              }).toString();
+              return {
+                code: PipeResponseCode.OK,
+                body: content,
+              };
+            }
+          }
+        } catch (err: any) {
+          this.logger.error(`Couldn't load OpenAPI spec file: ${err.message}`);
+          return {
+            code: PipeResponseCode.OK,
+            body: "",
+          };
+        }
+
+        throw new PipeErrorNotFound(`OpenAPI spec file`);
+      });
 
       /**
        * Retrieves detail file(s)
