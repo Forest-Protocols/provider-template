@@ -41,7 +41,6 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
     resource: Resource,
     offer: DetailedOffer,
   ): Promise<boolean>;
-
   /**
    * Returns the list of languages supported by the provider.
    */
@@ -99,7 +98,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       const isAllowed = await this.checkCallLimit(agreement, resource, {
         ...offer,
 
-        details: tryParseJSON(offerDetails),
+        details: tryParseJSON(offerDetails.content),
       });
 
       if (!isAllowed) {
@@ -151,7 +150,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       const isAllowed = await this.checkCallLimit(agreement, resource, {
         ...offer,
 
-        details: tryParseJSON(offerDetails),
+        details: tryParseJSON(offerDetails.content),
       });
 
       if (!isAllowed) {
@@ -209,7 +208,7 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
       const isAllowed = await this.checkCallLimit(agreement, resource, {
         ...offer,
 
-        details: tryParseJSON(offerDetails),
+        details: tryParseJSON(offerDetails.content),
       });
 
       if (!isAllowed) {

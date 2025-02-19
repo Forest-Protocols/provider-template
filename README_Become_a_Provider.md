@@ -54,8 +54,8 @@ You can take part in many Product Categories. In order to join this one run the 
 ```shell
 forest provider register-in \
   --account <private key file path OR private key itself of the Provider account> \
-  {Product Category Smart Contract Address} \
-  {Minimum Collateral}
+  --product-category <Product Category Smart Contract Address> \
+  --collateral <Minimum Collateral>
 ```
 
 #### 3. Register Offers
@@ -139,8 +139,8 @@ Now register your Offer using the following command:
 
 ```shell
 forest provider register-offer \
-     {Product Category Smart Contract Address} \
     --account <private key file path OR private key itself of the PROV account> \
+    --product-category <Product Category Smart Contract Address> \
     --details <path of the details file> \
     --fee 1 \
     --stock 100
