@@ -54,158 +54,111 @@ export abstract class AbstractProvider<
    * Initializes the provider if it needs some async operation to be done before start to use it.
    */
   async init(providerTag: string): Promise<void> {
-    const providerConfig = config.providers[providerTag];
+    try {
+      const providerConfig = config.providers[providerTag];
+      this.validateProviderConfig(providerConfig, providerTag);
 
-    if (!providerConfig) {
-      this.logger.error(
-        `Provider config not found for provider tag "${providerTag}". Please check your data/providers.json file`
-      );
-      process.exit(1);
+      // Setup Provider account and initialize clients
+      this.account = privateKeyToAccount(process.env.PROVIDER_WALLET_PRIVATE_KEY as Address);
+      this.registry = Registry.createWithClient(rpcClient, this.account);
+
+      await this.initializeActorInfo();
+      await this.initializeProductCategories();
+      await this.initializePipe(providerConfig);
+      this.setupOperatorRoutes();
+    } catch (error) {
+      if (error instanceof Error) {
+        this.logger.error(`Initialization failed: ${error.message}`);
+      } else {
+        this.logger.error('Initialization failed: unknown error');
+      }
+      throw error;
     }
+  }
 
-    // Setup Provider account
-    this.account = privateKeyToAccount(
-      providerConfig.providerWalletPrivateKey as Address
-    );
+  private validateProviderConfig(providerConfig: any, providerTag: string): void {
+    if (!providerConfig) {
+      throw new Error(`Provider config not found for provider tag "${providerTag}". Please check your data/providers.json file`);
+    }
+  }
 
-    // Initialize clients
-    this.registry = Registry.createWithClient(rpcClient, this.account);
-
+  private async initializeActorInfo(): Promise<void> {
     this.logger.info("Checking in Protocol Actor information");
     const provider = await this.registry.getActor(this.account.address);
     if (!provider) {
-      this.logger.error(
-        red(
-          `Provider address "${this.account.address}" is not registered in the Protocol. Please register it and try again.`
-        )
-      );
-      process.exit(1);
+      throw new Error(`Provider address "${this.account.address}" is not registered in the Protocol.`);
     }
     this.actorInfo = provider;
 
-    await DB.upsertProvider(
-      this.actorInfo.id,
-      this.actorInfo.detailsLink,
-      this.actorInfo.ownerAddr
-    );
-
-    // TODO: Validate details schema
+    await DB.upsertProvider(this.actorInfo.id, this.actorInfo.detailsLink, this.actorInfo.ownerAddr);
     const [provDetailFile] = await DB.getDetailFiles([provider.detailsLink]);
-
-    // `DB.upsertProvider` already checked the existence of the details file
     this.details = tryParseJSON(provDetailFile.content);
+  }
 
-    const pcAddresses = await this.registry.getRegisteredPCsOfProvider(
-      provider.id
-    );
+  private async initializeProductCategories(): Promise<void> {
+    const pcAddresses = await this.registry.getRegisteredPCsOfProvider(this.actorInfo.id);
+    const pcClientsPromises = pcAddresses.map(async (pcAddress) => {
+      this.pcClients[pcAddress.toLowerCase()] = ProductCategory.createWithClient(rpcClient, pcAddress as Address, this.account);
+    });
+    await Promise.all(pcClientsPromises);
+  }
 
-    for (const pcAddress of pcAddresses) {
-      this.pcClients[pcAddress.toLowerCase()] =
-        ProductCategory.createWithClient(
-          rpcClient,
-          pcAddress as Address,
-          this.account
-        );
-    }
-
-    // Initialize pipe for this operator address if it is not instantiated yet.
+  private async initializePipe(providerConfig: any): Promise<void> {
     if (!pipes[this.actorInfo.operatorAddr]) {
-      pipes[this.actorInfo.operatorAddr] = new XMTPPipe(
-        providerConfig.operatorWalletPrivateKey
-      );
-      // Disable console.info to get rid out of "XMTP dev" warning
-      const consoleInfo = console.info;
-      console.info = () => {};
-
-      // Use dev env only for local and sepolia chains
-      await pipes[this.actorInfo.operatorAddr].init(
-        config.CHAIN === "optimism" ? "production" : "dev"
-      );
-
-      // Revert back console.info
-      console.info = consoleInfo;
-
-      this.logger.info(
-        `Initialized Pipe for operator ${yellow.bold(
-          this.actorInfo.operatorAddr
-        )}`
-      );
-
-      // Setup operator specific endpoints
-
-      /**
-       * Retrieves detail file(s)
-       */
-      this.operatorRoute(PipeMethod.GET, "/details", async (req) => {
-        const body = validateBodyOrParams(req.body, z.array(z.string()).min(1));
-        const files = await DB.getDetailFiles(body);
-
-        if (files.length == 0) {
-          throw new PipeErrorNotFound("Detail files");
-        }
-
-        return {
-          code: PipeResponseCode.OK,
-          body: files.map((file) => file.content),
-        };
-      });
-
-      /**
-       * Retrieve details (e.g credentials) of resource(s).
-       */
-      this.operatorRoute(PipeMethod.GET, "/resources", async (req) => {
-        const params = validateBodyOrParams(
-          req.params,
-          z.object({
-            /** ID of the resource. */
-            id: z.number().optional(),
-
-            /** Product category address that the resource created in. */
-            pc: addressSchema.optional(), // A pre-defined Zod schema for smart contract addresses.
-          })
-        );
-
-        // If not both of them are given, send all resources of the requester
-        if (params.id === undefined || params.pc === undefined) {
-          return {
-            code: PipeResponseCode.OK,
-            body: await DB.getAllResourcesOfUser(req.requester as Address),
-          };
-        }
-
-        // NOTE:
-        // Since XMTP has its own authentication layer, we don't need to worry about
-        // if this request really sent by the owner of the resource. So if the sender is
-        // different from owner of the resource, basically the resource won't be found because
-        // we are looking to the database with agreement id + requester address + product category address.
-        const resource = await DB.getResource(
-          params.id,
-          req.requester,
-          params.pc as Address
-        );
-
-        if (!resource) {
-          throw new PipeErrorNotFound(`Resource ${params.id}`);
-        }
-
-        // Filter fields that starts with underscore.
-        const details: any = {};
-        for (const [name, value] of Object.entries(resource.details)) {
-          if (name.startsWith("_")) {
-            continue;
-          }
-
-          details[name] = value;
-        }
-
-        resource.details = details; // Use filtered details
-
-        return {
-          code: PipeResponseCode.OK,
-          body: resource,
-        };
-      });
+      pipes[this.actorInfo.operatorAddr] = new XMTPPipe(providerConfig.operatorWalletPrivateKey);
+      await pipes[this.actorInfo.operatorAddr].init(config.CHAIN === "optimism" ? "production" : "dev");
+      this.logger.info(`Initialized Pipe for operator ${yellow.bold(this.actorInfo.operatorAddr)}`);
     }
+  }
+
+  private setupOperatorRoutes(): void {
+    this.operatorRoute(PipeMethod.GET, "/details", async (req) => {
+      const body = validateBodyOrParams(req.body, z.array(z.string()).min(1));
+      const files = await DB.getDetailFiles(body);
+
+      if (files.length === 0) {
+        throw new PipeErrorNotFound("Detail files");
+      }
+
+      return {
+        code: PipeResponseCode.OK,
+        body: files.map((file) => file.content),
+      };
+    });
+
+    this.operatorRoute(PipeMethod.GET, "/resources", async (req) => {
+      const params = validateBodyOrParams(req.params, z.object({
+        id: z.number().optional(),
+        pc: addressSchema.optional(),
+      }));
+
+      if (params.id === undefined || params.pc === undefined) {
+        return {
+          code: PipeResponseCode.OK,
+          body: await DB.getAllResourcesOfUser(req.requester as Address),
+        };
+      }
+
+      const resource = await DB.getResource(params.id, req.requester, params.pc as Address);
+      if (!resource) {
+        throw new PipeErrorNotFound(`Resource ${params.id}`);
+      }
+
+      const details = Object.entries(resource.details)
+        .filter(([name]) => !name.startsWith("_"))
+        .reduce<{ [key: string]: any }>((acc, [name, value]) => {
+          acc[name] = value;
+          return acc;
+        }, {});
+
+
+      resource.details = details;
+
+      return {
+        code: PipeResponseCode.OK,
+        body: resource,
+      };
+    });
   }
 
   /**
