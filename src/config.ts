@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { cyan, red } from "ansis";
-import { readFileSync } from "fs";
+import { readFileSync, statSync } from "fs";
 import { join } from "path";
 import {
   ForestRegistryAddress,
@@ -9,6 +9,7 @@ import {
 } from "@forest-protocols/sdk";
 import { nonEmptyStringSchema } from "./validation/schemas";
 import { fromError } from "zod-validation-error";
+import { Address } from "viem";
 
 function parseEnv() {
   const environmentSchema = z.object({
@@ -42,25 +43,70 @@ function parseProviderConfig() {
     [providerTag: string]: z.infer<typeof providerSchema>;
   } = {};
 
-  try {
-    const fileContent = readFileSync(
-      join(process.cwd(), "data/providers.json")
-    ).toString();
-    const rootObject = JSON.parse(fileContent);
-    console.log(`Reading ${cyan("providers.json")}`);
+  const path = join(process.cwd(), "data/providers.json");
 
-    for (const [name, info] of Object.entries(rootObject)) {
-      // Validate each provider object
-      const provider = providerSchema.safeParse(info, {});
-      if (provider.error) {
-        throw new Error(fromError(provider.error).toString());
+  if (statSync(path, { throwIfNoEntry: false })?.isFile()) {
+    try {
+      const fileContent = readFileSync(path).toString();
+      const rootObject = JSON.parse(fileContent);
+      console.log(`Reading ${cyan("providers.json")}`);
+
+      for (const [name, info] of Object.entries(rootObject)) {
+        // Validate each provider object
+        const provider = providerSchema.safeParse(info, {});
+        if (provider.error) {
+          throw new Error(fromError(provider.error).toString());
+        }
+
+        providers[name] = provider.data!;
       }
-
-      providers[name] = provider.data!;
+    } catch (err: any) {
+      console.error(red(`Invalid providers.json file: ${err.message}`));
+      process.exit(1);
     }
-  } catch (err: any) {
-    console.error(red(`Invalid providers.json file: ${err.message}`));
-    process.exit(1);
+  } else {
+    const regex = /^(PROVIDER|BILLING|OPERATOR)_PRIVATE_KEY_([\w]+)$/;
+    for (const [name, value] of Object.entries(process.env)) {
+      const match = name.match(regex);
+      if (match) {
+        const keyType = match[1];
+        const providerTag = match[2];
+
+        if (!providers[providerTag]) {
+          providers[providerTag] = {
+            billingWalletPrivateKey: "0x",
+            operatorWalletPrivateKey: "0x",
+            providerWalletPrivateKey: "0x",
+          };
+        }
+
+        switch (keyType) {
+          case "PROVIDER":
+            providers[providerTag].providerWalletPrivateKey = value as Address;
+            break;
+          case "OPERATOR":
+            providers[providerTag].operatorWalletPrivateKey = value as Address;
+            break;
+          case "BILLING":
+            providers[providerTag].billingWalletPrivateKey = value as Address;
+            break;
+        }
+      }
+    }
+
+    for (const [providerTag, keys] of Object.entries(providers)) {
+      const validation = providerSchema.safeParse(keys);
+
+      if (validation.error) {
+        const error = validation.error.errors[0];
+        console.error(
+          red(
+            `Invalid Provider configuration for tag "${providerTag}": ${error.path}: ${error.message}`
+          )
+        );
+        process.exit(1);
+      }
+    }
   }
 
   return providers;

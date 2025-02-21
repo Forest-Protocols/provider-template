@@ -1,0 +1,140 @@
+# This is the example OpenAPI spec. As Protocol Owner,
+# you need to edit it according to your Protocol definitions
+openapi: 3.0.0
+info:
+  # Command name that going to be appear in CLI. [MUST]
+  x-forest-cli-command: psql
+
+  # Aliases for the command defined above. [OPTIONAL]
+  x-forest-cli-aliases:
+    - postgresql
+    - postgre-sql
+  title: PostgreSQL Protocol
+  description: API for PostgreSQL Protocol
+  version: "1.0"
+  license:
+    name: MIT
+paths:
+  /query:
+    post:
+      # Specifies if this endpoint is Provider specific or not.
+      # If that is true, user has to send provider id within the request to
+      # point which Provider that he is going to communicate from the target operator
+      x-forest-provider-endpoint: true
+
+      description: Executes the given SQL query in the database
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - id
+                - pc
+                - sql
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource
+                pc:
+                  type: string
+                  description: Product Category address that the resource created in
+                sql:
+                  type: string
+                  description: SQL query to be executed.
+      responses:
+        "200":
+          description: SQL executed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  results:
+                    type: array
+                    description: Results
+                    items:
+                      type: object
+  /resources:
+    get:
+      summary: Get one or all of the resources
+      description: Gets one or all resources of the caller. If "id" and "pc" values are not given, retrieves all of the Resources that caller has. Caller must be the owner of those resource(s).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: number
+                  description: ID of the resource/agreement
+                pc:
+                  type: string
+                  description: Product Category address
+      responses:
+        "200":
+          description: "Resources"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id:
+                      type: number
+                    name:
+                      type: string
+                    deploymentStatus:
+                      type: string
+                      enum:
+                        - Running
+                        - Deploying
+                        - Closed
+                        - Unknown
+                        - Failed
+                    details:
+                      type: object
+                    groupName:
+                      type: string
+                    isActive:
+                      type: boolean
+                    ownerAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+                    offerId:
+                      type: number
+                    providerId:
+                      type: number
+                    providerAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+                    pcAddress:
+                      type: string
+                      example: "0x1231231231231231231231231231231231231231"
+        "404":
+          description: "Resource not found"
+  /details:
+    get:
+      summary: Gets the detail file(s)
+      description: Gets the detail files for the given CIDs if they there are in this operator
+      requestBody:
+        description: CIDs of the desired detail files
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                type: string
+      responses:
+        "200":
+          description: Returns the file contents. If the CID is not found, it won't be included in the response array
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+        "404":
+          description: If one CID is given and it is not found

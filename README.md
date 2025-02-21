@@ -318,24 +318,24 @@ forest product-category create \
 
 #### Explanation of Command Flags
 
-| Flag                       | Description                                                      |
-| -------------------------- | ---------------------------------------------------------------- |
-| `--max-validator`          | Maximum number of Validators that can be registered.             |
-| `--max-provider`           | Maximum number of Providers that can be registered.              |
-| `--min-collateral`         | Minimum FOREST token collateral required for a registration.     |
-| `--validator-register-fee` | Registration fee (FOREST token) for Validators.                  |
-| `--provider-register-fee`  | Registration fee (FOREST token) for Providers.                   |
-| `--offer-register-fee`     | Fee for Providers to register a new Offer.                       |
-| `--term-update-delay`      | Minimum block count before Providers can close agreements.       |
-| `--provider-share`         | Percentage of emissions allocated to Providers.                  |
-| `--validator-share`        | Percentage of emissions allocated to Validators.                 |
-| `--pco-share`              | Percentage of emissions allocated to the Protocol Owner. |
+| Flag                       | Description                                                  |
+| -------------------------- | ------------------------------------------------------------ |
+| `--max-validator`          | Maximum number of Validators that can be registered.         |
+| `--max-provider`           | Maximum number of Providers that can be registered.          |
+| `--min-collateral`         | Minimum FOREST token collateral required for a registration. |
+| `--validator-register-fee` | Registration fee (FOREST token) for Validators.              |
+| `--provider-register-fee`  | Registration fee (FOREST token) for Providers.               |
+| `--offer-register-fee`     | Fee for Providers to register a new Offer.                   |
+| `--term-update-delay`      | Minimum block count before Providers can close agreements.   |
+| `--provider-share`         | Percentage of emissions allocated to Providers.              |
+| `--validator-share`        | Percentage of emissions allocated to Validators.             |
+| `--pco-share`              | Percentage of emissions allocated to the Protocol Owner.     |
 
 ### 3. Prepare the README file for Users and Providers
 
-Now you need to create a human-readable specification of your Protocol. You have total freedom to shape this document in a way you think is best. However we provide two templates for inspiration (`README_template_1.md`: [here](./README_template_1.md)) and (`README_template_2.md`: [here](./README_template_2.md)). Rename the chosen file to `README.md` (this will override this, but that's fine).
+Now you need to create a human-readable specification of your Protocol. You have total freedom to shape this document in a way you think is best. However we provide two templates for inspiration (`README_template_1.md`: [here](./docs/README_template_1.md)) and (`README_template_2.md`: [here](./docs/README_template_2.md)). Rename the chosen file to `README.md` (this will override this, but that's fine).
 
-From now on the `README.md` will include basic information about your PC that might be interesting to Users. It also links to a Provider tutorial on how to easily integrate with your Protocol. So the last thing you need to do is customize the information by filling out the missing parts in your PC's `README.md` as well as in the `README_Become_a_Provider.md`.
+From now on the `README.md` will include basic information about your PC that might be interesting to Users. It also links to a Provider tutorial on how to easily integrate with your Protocol. So the last thing you need to do is customize the information by filling out the missing parts in your PC's `README.md` as well as in the `docs/become-a-provider.md`.
 
 ### 4. Grow Your Protocol
 
