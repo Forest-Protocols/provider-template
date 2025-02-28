@@ -1,7 +1,7 @@
 import { Agreement, PipeResponseCode } from "@forest-protocols/sdk";
 import {
-  BaseExampleServiceProvider,
-  ExampleResourceDetails,
+  BaseMachineTranslationServiceProvider,
+  MachineTranslationDetails,
 } from "./base-provider";
 import { DetailedOffer, Resource } from "@/types";
 
@@ -9,8 +9,8 @@ import { DetailedOffer, Resource } from "@/types";
  * The main class that implements provider specific actions.
  * @responsible Provider
  */
-export class MainProviderImplementation extends BaseExampleServiceProvider {
-  async doSomething(
+export class MachineTranslationServiceProvider extends BaseMachineTranslationServiceProvider {
+  async checkCallLimit(
     agreement: Agreement,
     resource: Resource,
     offer: DetailedOffer,
@@ -36,8 +36,8 @@ export class MainProviderImplementation extends BaseExampleServiceProvider {
 
   async create(
     agreement: Agreement,
-    offer: DetailedOffer
-  ): Promise<ExampleResourceDetails> {
+    offer: DetailedOffer,
+  ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be created.
      */
@@ -55,8 +55,8 @@ export class MainProviderImplementation extends BaseExampleServiceProvider {
   async getDetails(
     agreement: Agreement,
     offer: DetailedOffer,
-    resource: Resource
-  ): Promise<ExampleResourceDetails> {
+    resource: Resource,
+  ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the details retrieved from the resource source.
      */

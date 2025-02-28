@@ -4,7 +4,6 @@ import {
   PipeError,
   PipeMethod,
   PipeResponseCode,
-  validateBodyOrParams,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
 import { DetailedOffer, Resource, ResourceDetails } from "@/types";
@@ -19,18 +18,14 @@ import { tryParseJSON } from "@/utils";
  * The details will be stored for each created Resource.
  * @responsible Protocol Owner
  */
-export type ExampleResourceDetails = ResourceDetails & {
-  Example_Detail: number;
-
-  /* This field won't be sent when the User requested it */
-  _examplePrivateDetailWontSentToUser: string;
+export type MachineTranslationDetails = ResourceDetails & {
+  API_Call_Count: number;
 };
-
 /**
  * Base Provider that defines what kind of actions needs to be implemented for the Protocol.
  * @responsible Protocol Owner
  */
-export abstract class BaseExampleServiceProvider extends AbstractProvider<ExampleResourceDetails> {
+export abstract class BaseMachineTranslationServiceProvider extends AbstractProvider<MachineTranslationDetails> {
   /**
    * An example function that represents service specific action. This
    * function has to be implemented by all of the Providers who wants to.
@@ -81,78 +76,6 @@ export abstract class BaseExampleServiceProvider extends AbstractProvider<Exampl
   async init(providerTag: string) {
     await super.init(providerTag);
 
-    /**
-     * If your service has some functionalities/interactions (like "doSomething" method)
-     * you can define "Pipe" routes to map the incoming requests from end users to the
-     * corresponding methods.
-     *
-     * Pipe is a simple abstraction layer that allow the participants to communicate
-     * HTTP like request-response style communication between them.
-     *
-     * Take a look at the example below:
-     */
-
-    /** Calls "doSomething" method. */
-    this.route(PipeMethod.GET, "/do-something", async (req) => {
-      /**
-       * Validates the params/body of the request. If they are not valid
-       * request will reply back to the user with a validation error message
-       * and bad request code automatically.
-       */
-      const body = validateBodyOrParams(
-        req.body,
-        z.object({
-          id: z.number(),
-
-          /** Protocol address that the resource created in. */
-          pt: addressSchema, // A pre-defined Zod schema for smart contract addresses.
-
-          /** Additional argument for the method. */
-          argument: z.string(),
-        })
-      );
-
-      const { resource, agreement } = await this.getResource(
-        body.id,
-        body.pt as Address,
-        req.requester
-      );
-
-      const offer = await this.getPcClient(body.pc as Address).getOffer(
-        agreement.offerId,
-      );
-
-      const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
-
-      const isAllowed = await this.checkCallLimit(agreement, resource, {
-        ...offer,
-
-        details: tryParseJSON(offerDetails.content),
-      });
-
-      if (!isAllowed) {
-        throw new PipeError(PipeResponseCode.BAD_REQUEST, {
-          message: "API call limit exceed",
-        });
-      }
-
-      await DB.updateResource(resource.id, resource.pcAddress, {
-        details: {
-          ...resource.details,
-          API_Call_Count: resource.details.API_Call_Count + 1,
-        },
-      });
-
-      const result = await this.languages();
-
-      return {
-        code: PipeResponseCode.OK,
-        body: {
-          languages: result,
-        },
-      };
-    });
-
     this.route(PipeMethod.POST, "/translate", async (req) => {
       const bodySchema = z.object({
         id: z.number(),
@@ -170,7 +93,7 @@ export abstract class BaseExampleServiceProvider extends AbstractProvider<Exampl
         req.requester,
       );
 
-      const offer = await this.getPcClient(body.pc as Address).getOffer(
+      const offer = await this.getProtocol(body.pc as Address).getOffer(
         agreement.offerId,
       );
 
@@ -188,7 +111,7 @@ export abstract class BaseExampleServiceProvider extends AbstractProvider<Exampl
         });
       }
 
-      await DB.updateResource(resource.id, resource.pcAddress, {
+      await DB.updateResource(resource.id, resource.ptAddress, {
         details: {
           ...resource.details,
           API_Call_Count: resource.details.API_Call_Count + 1,
@@ -228,7 +151,7 @@ export abstract class BaseExampleServiceProvider extends AbstractProvider<Exampl
         req.requester,
       );
 
-      const offer = await this.getPcClient(body.pc as Address).getOffer(
+      const offer = await this.getProtocol(body.pc as Address).getOffer(
         agreement.offerId,
       );
 
@@ -246,7 +169,7 @@ export abstract class BaseExampleServiceProvider extends AbstractProvider<Exampl
         });
       }
 
-      await DB.updateResource(resource.id, resource.pcAddress, {
+      await DB.updateResource(resource.id, resource.ptAddress, {
         details: {
           ...resource.details,
           API_Call_Count: resource.details.API_Call_Count + 1,
