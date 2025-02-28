@@ -22,7 +22,7 @@ export type ResourceDetails = {
 };
 
 /**
- * Resource details from the database.
+ * Resource record from the database.
  */
 export type Resource = {
   id: number;
@@ -35,7 +35,7 @@ export type Resource = {
   offerId: number;
   providerId: number;
   providerAddress: Address;
-  pcAddress: Address;
+  ptAddress: Address;
 };
 
 export type DetailedOffer = Offer & {

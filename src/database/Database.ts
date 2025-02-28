@@ -40,7 +40,7 @@ class Database {
    */
   async updateResource(
     id: number,
-    pcAddress: Address,
+    ptAddress: Address,
     values: {
       name?: string;
       details?: any;
@@ -49,11 +49,11 @@ class Database {
       isActive?: boolean;
     }
   ) {
-    const pc = await this.getProductCategory(pcAddress);
+    const pt = await this.getProtocol(ptAddress);
 
-    if (!pc) {
+    if (!pt) {
       this.logger.error(
-        `Product category not found ${pcAddress} while looking for the resource #${id}`
+        `Protocol not found ${ptAddress} while looking for the resource #${id}`
       );
       return;
     }
@@ -64,7 +64,7 @@ class Database {
       .where(
         and(
           eq(schema.resourcesTable.id, id),
-          eq(schema.resourcesTable.pcAddressId, pc.id)
+          eq(schema.resourcesTable.ptAddressId, pt.id)
         )
       );
   }
@@ -72,8 +72,8 @@ class Database {
   /**
    * Marks a resource record as deleted (not active) and deletes its details.
    */
-  async deleteResource(id: number, pcAddress: Address) {
-    await this.updateResource(id, pcAddress, {
+  async deleteResource(id: number, ptAddress: Address) {
+    await this.updateResource(id, ptAddress, {
       isActive: false,
       deploymentStatus: DeploymentStatus.Closed,
       details: {}, // TODO: Should we delete all the details (including credentials)?
@@ -93,22 +93,22 @@ class Database {
   async getResource(
     id: number,
     ownerAddress: string,
-    pcAddress: Address
+    ptAddress: Address
   ): Promise<Resource | undefined> {
-    const pc = await this.getProductCategory(pcAddress);
+    const pt = await this.getProtocol(ptAddress);
 
-    if (!pc) {
+    if (!pt) {
       return;
     }
 
-    const [resource] = await this.resourceQuery(pc.address).where(
+    const [resource] = await this.resourceQuery(pt.address).where(
       and(
         eq(schema.resourcesTable.id, id),
         eq(
           sql`LOWER(${schema.resourcesTable.ownerAddress})`,
           ownerAddress.toLowerCase()
         ),
-        eq(schema.resourcesTable.pcAddressId, pc.id)
+        eq(schema.resourcesTable.ptAddressId, pt.id)
       )
     );
 
@@ -120,8 +120,8 @@ class Database {
   /**
    * Builds a Resource select query
    */
-  private resourceQuery(pcAddress?: string) {
-    if (!pcAddress) {
+  private resourceQuery(ptAddress?: string) {
+    if (!ptAddress) {
       return this.client
         .select({
           id: schema.resourcesTable.id,
@@ -134,15 +134,12 @@ class Database {
           offerId: schema.resourcesTable.offerId,
           providerId: schema.resourcesTable.providerId,
           providerAddress: sql<Address>`${schema.providersTable.ownerAddress}`,
-          pcAddress: sql<Address>`${schema.productCategoriesTable.address}`,
+          ptAddress: sql<Address>`${schema.protocolsTable.address}`,
         })
         .from(schema.resourcesTable)
         .innerJoin(
-          schema.productCategoriesTable,
-          eq(
-            schema.productCategoriesTable.id,
-            schema.resourcesTable.pcAddressId
-          )
+          schema.protocolsTable,
+          eq(schema.protocolsTable.id, schema.resourcesTable.ptAddressId)
         )
         .innerJoin(
           schema.providersTable,
@@ -163,7 +160,7 @@ class Database {
         offerId: schema.resourcesTable.offerId,
         providerId: schema.resourcesTable.providerId,
         providerAddress: sql<Address>`${schema.providersTable.ownerAddress}`,
-        pcAddress: sql<Address>`${pcAddress}`,
+        ptAddress: sql<Address>`${ptAddress}`,
       })
       .from(schema.resourcesTable)
       .innerJoin(
@@ -181,15 +178,15 @@ class Database {
   }
 
   /**
-   * Gets product category info stored in the database.
+   * Gets Protocol from the database.
    */
-  async getProductCategory(address: Address) {
-    const [pc] = await this.client
+  async getProtocol(address: Address) {
+    const [pt] = await this.client
       .select()
-      .from(schema.productCategoriesTable)
-      .where(eq(schema.productCategoriesTable.address, address?.toLowerCase()));
+      .from(schema.protocolsTable)
+      .where(eq(schema.protocolsTable.address, address?.toLowerCase()));
 
-    return pc;
+    return pt;
   }
 
   /**
@@ -199,7 +196,6 @@ class Database {
     const [lastBlock] = await this.client
       .select()
       .from(schema.blockchainTxsTable)
-      .orderBy(desc(schema.blockchainTxsTable.height))
       .limit(1);
 
     return lastBlock?.height;
@@ -241,26 +237,34 @@ class Database {
    * Saves a transaction as processed
    * @param blockHeight
    */
-  async saveTxAsProcessed(blockHeight: bigint, hash: string) {
+  async saveTransaction(blockHeight: bigint, hash: string) {
     await this.client.transaction(async (tx) => {
       const [transaction] = await tx
         .select()
         .from(schema.blockchainTxsTable)
-        .where(eq(schema.blockchainTxsTable.height, blockHeight));
+        .where(
+          and(
+            eq(schema.blockchainTxsTable.height, blockHeight),
+            eq(schema.blockchainTxsTable.hash, hash)
+          )
+        );
 
-      if (!transaction) {
-        await tx.insert(schema.blockchainTxsTable).values({
-          height: blockHeight,
-          isProcessed: true,
-          hash,
-        });
-      } else if (transaction.isProcessed === false) {
-        await tx
-          .update(schema.blockchainTxsTable)
-          .set({ isProcessed: true })
-          .where(eq(schema.blockchainTxsTable.height, blockHeight));
-      }
+      if (transaction) return;
+
+      await this.client.insert(schema.blockchainTxsTable).values({
+        height: blockHeight,
+        hash,
+      });
     });
+  }
+
+  /**
+   * Deletes all of the records that belongs to a particular block height
+   */
+  async clearBlocks(blockHeight: bigint) {
+    await this.client
+      .delete(schema.blockchainTxsTable)
+      .where(eq(schema.blockchainTxsTable.height, blockHeight));
   }
 
   async saveDetailFiles(contents: string[]) {
@@ -323,17 +327,15 @@ class Database {
   }
 
   /**
-   * Saves a product category to the database.
-   * @param address Smart contract address of the product category.
+   * Saves a Protocol to the database.
+   * @param address Smart contract address of the Protocol.
    */
-  async upsertProductCategory(address: Address, detailsLink: any) {
+  async upsertProtocol(address: Address, detailsLink: any) {
     await this.client.transaction(async (tx) => {
-      const [pc] = await tx
+      const [pt] = await tx
         .select()
-        .from(schema.productCategoriesTable)
-        .where(
-          eq(schema.productCategoriesTable.address, address.toLowerCase())
-        );
+        .from(schema.protocolsTable)
+        .where(eq(schema.protocolsTable.address, address.toLowerCase()));
 
       const [detailFile] = await tx
         .select({
@@ -344,16 +346,16 @@ class Database {
 
       if (!detailFile) {
         throw new Error(
-          `Details file not found for Product Category ${address}. Please be sure you've placed the details of the Product Category into "data/details/[filename]"`
+          `Details file not found for Protocol ${address}. Please be sure you've placed the details of the Protocol into "data/details/[filename]"`
         );
       }
 
-      // TODO: Update PC
-      if (pc) {
+      // TODO: Update Protocol
+      if (pt) {
         return;
       }
 
-      await tx.insert(schema.productCategoriesTable).values({
+      await tx.insert(schema.protocolsTable).values({
         address: address.toLowerCase(),
       });
     });

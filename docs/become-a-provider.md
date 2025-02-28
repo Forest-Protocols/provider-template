@@ -1,9 +1,9 @@
-# Become a Provider in this Product Category
+# Become a Provider in this Protocol
 
-If you want to start providing services in this Product Category follow the steps below.
+If you want to start providing services in this Protocol follow the steps below.
 
-1. [Register in the Protocol](#1-register-in-the-protocol),
-2. [Register in this Product Category](#2-register-in-this-product-category),
+1. [Register in the Network](#1-register-in-the-network),
+2. [Register in this Protocol](#2-register-in-this-protocol),
 3. [Register Offers](#3-register-offers),
 4. [Fork and Implement This Repository](#4-fork-and-implement-this-repository),
 5. [Run the Provider Daemon](#5-run-the-provider-daemon).
@@ -19,9 +19,9 @@ Install [Node.js](https://nodejs.org) (min version 22.12.0) environment, Forest 
 - PostgreSQL [official](https://www.postgresql.org/download/) downloads page (if you want to run Postgres natively)
 - Docker [image](https://hub.docker.com/_/postgres) for PostgreSQL (if you want to run dockerized Postgres)
 
-#### 1. Register in the Protocol
+#### 1. Register in the Network
 
-> You can skip this part if you are already registered in the Protocol as a Provider.
+> You can skip this part if you are already registered in the Network as a Provider.
 
 1. Create a JSON detail file in the following schema and save it somewhere:
 
@@ -47,20 +47,20 @@ Install [Node.js](https://nodejs.org) (min version 22.12.0) environment, Forest 
    TESTNET NOTE: if you need testnet tokens reach out to the Forest Protocols team on [Discord](https://discord.gg/2MsTWq2tc7).
 7. Save your detail file somewhere. Later you'll place this file into `data/details` folder.
 
-#### 2. Register in this Product Category
+#### 2. Register in this Protocol
 
-You can take part in many Product Categories. In order to join this one run the following command:
+You can take part in many Protocols. In order to join this one run the following command:
 
 ```shell
 forest provider register-in \
   --account <private key file path OR private key itself of the Provider account> \
-  --product-category <Product Category Smart Contract Address> \
+  --protocol <Protocol Smart Contract Address> \
   --collateral <Minimum Collateral>
 ```
 
 #### 3. Register Offers
 
-Now that you are registered in the Protocol and this Product Category, the next step is to register your Offers.
+Now that you are registered in the Network and this Protocol, the next step is to register your Offers.
 
 First, create files that contain details for each Offer you plan to register. You have two options for these detail files:
 
@@ -140,7 +140,7 @@ Now register your Offer using the following command:
 ```shell
 forest provider register-offer \
     --account <private key file path OR private key itself of the PROV account> \
-    --product-category <Product Category Smart Contract Address> \
+    --protocol <Protocol Smart Contract Address> \
     --details <path of the details file> \
     --fee 1 \
     --stock 100
@@ -153,7 +153,7 @@ forest provider register-offer \
 
 Fork this repository, then clone it locally.
 
-Open the `src/product-category/provider.ts` file and implement all of the following methods;
+Open the `src/protocol/provider.ts` file and implement all of the following methods;
 
 | Method                                                                                          | Description                                                                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -177,7 +177,7 @@ Now, create a `.env` file based on the example (`.env.example`) and configure th
 
 Then rename `data/providers.example.jsonc` to `data/providers.json`, clear the comments inside of it and fill the `main` tag with your private keys.
 
-As the last step, don't forget to put detail files of the Provider, Product Category and Offers into `data/details` folder.
+As the last step, don't forget to put detail files of the Provider, Protocol and Offers into `data/details` folder.
 
 #### 5. Run the Provider Daemon
 

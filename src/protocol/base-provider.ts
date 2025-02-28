@@ -16,25 +16,32 @@ import { validateBody } from "@/helpers";
 import { tryParseJSON } from "@/utils";
 
 /**
- * The details gathered by the Provider from the resource source.
- * This is the "details" type of each resource and it is stored in the database.
- * @responsible Product Category Owner
+ * The details will be stored for each created Resource.
+ * @responsible Protocol Owner
  */
+export type ExampleResourceDetails = ResourceDetails & {
+  Example_Detail: number;
 
-export type MachineTranslationDetails = ResourceDetails & {
-  API_Call_Count: number;
+  /* This field won't be sent when the User requested it */
+  _examplePrivateDetailWontSentToUser: string;
 };
 
 /**
- * Base Provider that defines what kind of actions needs to be implemented for the Product Category.
- * @responsible Product Category Owner
+ * Base Provider that defines what kind of actions needs to be implemented for the Protocol.
+ * @responsible Protocol Owner
  */
-
-export abstract class BaseMachineTranslationProvider extends AbstractProvider<MachineTranslationDetails> {
+export abstract class BaseExampleServiceProvider extends AbstractProvider<ExampleResourceDetails> {
   /**
-   * Checks if the resource still has limit to call query API.
-   * @param resource Resource record of the agreement.
-   * @param offer The offer details that the resource is in use.
+   * An example function that represents service specific action. This
+   * function has to be implemented by all of the Providers who wants to.
+   * participate to this Protocol.
+   *
+   * The definition is up to Protocol Owner. So if some of the
+   * arguments are not needed, they can be deleted. Like `agreement` or
+   * `resource` can be deleted if they are unnecessary for the implementation.
+   * @param agreement On-chain agreement data.
+   * @param resource Resource information stored in the database.
+   * @param additionalArgument Extra argument that related to the functionality (if needed).
    */
   abstract checkCallLimit(
     agreement: Agreement,
@@ -74,19 +81,41 @@ export abstract class BaseMachineTranslationProvider extends AbstractProvider<Ma
   async init(providerTag: string) {
     await super.init(providerTag);
 
-    this.route(PipeMethod.GET, "/languages", async (req) => {
+    /**
+     * If your service has some functionalities/interactions (like "doSomething" method)
+     * you can define "Pipe" routes to map the incoming requests from end users to the
+     * corresponding methods.
+     *
+     * Pipe is a simple abstraction layer that allow the participants to communicate
+     * HTTP like request-response style communication between them.
+     *
+     * Take a look at the example below:
+     */
+
+    /** Calls "doSomething" method. */
+    this.route(PipeMethod.GET, "/do-something", async (req) => {
+      /**
+       * Validates the params/body of the request. If they are not valid
+       * request will reply back to the user with a validation error message
+       * and bad request code automatically.
+       */
       const body = validateBodyOrParams(
         req.body,
         z.object({
           id: z.number(),
-          pc: addressSchema,
-        }),
+
+          /** Protocol address that the resource created in. */
+          pt: addressSchema, // A pre-defined Zod schema for smart contract addresses.
+
+          /** Additional argument for the method. */
+          argument: z.string(),
+        })
       );
 
       const { resource, agreement } = await this.getResource(
         body.id,
-        body.pc as Address,
-        req.requester,
+        body.pt as Address,
+        req.requester
       );
 
       const offer = await this.getPcClient(body.pc as Address).getOffer(

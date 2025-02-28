@@ -18,6 +18,7 @@ function parseEnv() {
     NODE_ENV: z.enum(["dev", "production"]).default("dev"),
     RPC_HOST: nonEmptyStringSchema,
     CHAIN: z.enum(["anvil", "optimism", "optimism-sepolia"]).default("anvil"),
+    PORT: z.coerce.number().default(3000),
   });
   const parsedEnv = environmentSchema.safeParse(process.env, {});
 

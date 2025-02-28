@@ -1,0 +1,1 @@
+ALTER TABLE "blockchain_transactions" DROP COLUMN "is_processed";

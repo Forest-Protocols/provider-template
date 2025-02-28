@@ -1,18 +1,18 @@
-# Product Category: `{Product Category Name, make it functionally descriptive}`
+# Protocol: `{Protocol Name, make it functionally descriptive}`
 
 ## Description
 
-`{Describe the goal of this network}`
+`{Describe the goal of this Protocol}`
 
 ## Basic Info
 
 | Name                      | Value                      |
 | ------------------------- | -------------------------- |
-| PC Smart Contract Address | `{Smart Contract Address}` |
-| PC Registration Date      | `{Date of registration}`   |
-| PC Details File CID       | `{CID}`                    |
-| PC Owner Wallet Address   | `{Public Wallet Address}`  |
-| PC Owner Details File CID | `{CID}`                    |
+| PT Smart Contract Address | `{Smart Contract Address}` |
+| PT Registration Date      | `{Date of registration}`   |
+| PT Details File CID       | `{CID}`                    |
+| PT Owner Wallet Address   | `{Public Wallet Address}`  |
+| PT Owner Details File CID | `{CID}`                    |
 
 ## Supported Actions (Endpoints)
 
@@ -24,7 +24,7 @@
 
 ## Configuration Parameters
 
-This Product Category has the following configuration. Some of them are enforced by the logic of the on-chain smart contracts and the others are part of the Validator code hence enforced by the Validator consensus.
+This Protocol has the following configuration. Some of them are enforced by the logic of the on-chain smart contracts and the others are part of the Validator code hence enforced by the Validator consensus.
 
 | Config                                   | Value                      | Enforced by    |
 | ---------------------------------------- | -------------------------- | -------------- |
@@ -37,7 +37,7 @@ This Product Category has the following configuration. Some of them are enforced
 | Update Delay for Terms Change            | `{Block Count}`            | Smart Contract |
 | Validators Share of Emissions            | `{+Percentage}`            | Smart Contract |
 | Providers Share of Emissions             | `{+Percentage}`            | Smart Contract |
-| PC Owner Share of Emissions              | `{+Percentage}`            | Smart Contract |
+| PT Owner Share of Emissions              | `{+Percentage}`            | Smart Contract |
 | CID of the Details File                  | `{CID}`                    | Smart Contract |
 | Performance Optimization Weight          | `{*Percentage}`            | Validator      |
 | Price Optimization Weight                | `{*Percentage}`            | Validator      |
@@ -66,6 +66,6 @@ More in-depth descriptions of the Tests (optional):
 | {Test Name 2} | {Long form description} |
 | {Test Name 3} | {Long form description} |
 
-## Become a Provider in this Product Category
+## Become a Provider in this Protocol
 
-If you want to start providing services in this Product Category follow this tutorial: [link](become-a-provider.md)
+If you want to start providing services in this Protocol follow this tutorial: [link](become-a-provider.md)

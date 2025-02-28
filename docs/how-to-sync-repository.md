@@ -7,7 +7,7 @@ Once you have completed your implementation, you will need to keep your forked r
 
 ## Why Do I Need to Do This?
 
-Over time, the base repositories may receive new features, bug fixes, and other improvements. Keeping your forked repository updated ensures that you can take advantage of these updates and compatible with the rest of the Network.
+Over time, the base repositories may receive new features, bug fixes, and other improvements. Keeping your forked repository updated ensures that you can take advantage of these updates and stay compatible with the rest of the Network.
 
 ## Tutorial
 
