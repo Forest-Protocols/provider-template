@@ -12,7 +12,6 @@ import { logger } from "./logger";
 import { rpcClient } from "./clients";
 import { AbstractProvider } from "./abstract/AbstractProvider";
 import * as ansis from "ansis";
-import { MainProviderImplementation } from "./protocol/provider";
 import {
   adjectives,
   animals,
@@ -25,6 +24,7 @@ import { tryParseJSON } from "./utils";
 import { DetailedOffer } from "./types";
 import express from "express";
 import { config } from "./config";
+import { MachineTranslationServiceProvider } from "./protocol/provider";
 
 async function sleep(ms: number) {
   return await new Promise((res) => setTimeout(res, ms));
@@ -42,7 +42,7 @@ function colorKeyword(word: string) {
 
 class Program {
   providers = {
-    main: new MachineTranslationProvider(),
+    main: new MachineTranslationServiceProvider(),
   };
 
   listenedPTAddresses: string[] = [];
