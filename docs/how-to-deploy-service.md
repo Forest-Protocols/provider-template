@@ -1,6 +1,7 @@
 # How to deploy the Provider Backend Daemon with Postgres Database
 
 This guide contains instructions on how to deploy the Provider Backend Daemon with a PostgreSQL database.
+[Video Tutorial](https://drive.google.com/file/d/1QQN2bseW8NDRFpTBmCsek5xYWT37UfaC/view?usp=drive_link)
 
 1. [Create an account on Koyeb](#1-create-an-account-on-koyeb),
 2. [Create an account on Supabase](#2-create-an-account-on-supabase),
@@ -38,12 +39,27 @@ This guide contains instructions on how to deploy the Provider Backend Daemon wi
 
 1. Construct the connection string. For getting wide information you can go to [Supabase documentation](https://supabase.com/docs/guides/database/psql)
 
-- Example of how connection string should looks like: `postgresql://postgres.<supabase project ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=<docker container path to the cert>`
-  > The ssl root cert path will be looking like this : `sslrootcert=/daemon/data/prod-ca-2021.crt`
+Example of how connection string should looks like:
+
+```env
+postgresql://postgres.<supabase project ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=<docker container path to the cert>
+```
+
+> Since this file will be included within the container, the path should represents the container directory structure.
+
+The ssl root cert path will be looking like this :
+
+```env
+sslrootcert=/daemon/data/prod-ca-2021.crt
+```
 
 2. Update the default DATABASE_URL in the `.env` file with the connection string.
 
-- Example of how connection string should looks like within .env: `DATABASE_URL=postgresql://postgres.<supabase project ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=<docker container path to the cert>`
+Example of how connection string should looks like within .env:
+
+```env
+DATABASE_URL=postgresql://postgres.<supabase project ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres?sslmode=verify-full&sslrootcert=<docker container path to the cert>
+```
 
 ### 3. Deploy the Provider Backend Daemon
 
