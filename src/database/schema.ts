@@ -29,13 +29,13 @@ export const resourcesTable = pgTable(
     providerId: integer("provider_id")
       .references(() => providersTable.id)
       .notNull(),
-    pcAddressId: integer("pc_address_id")
-      .references(() => productCategoriesTable.id)
+    ptAddressId: integer("pt_address_id")
+      .references(() => protocolsTable.id)
       .notNull(),
   },
   (table) => [
     primaryKey({
-      columns: [table.id, table.pcAddressId],
+      columns: [table.id, table.ptAddressId],
     }),
   ]
 );
@@ -44,9 +44,9 @@ relations(resourcesTable, ({ one }) => ({
     fields: [resourcesTable.providerId],
     references: [providersTable.id],
   }),
-  productCategory: one(productCategoriesTable, {
-    fields: [resourcesTable.pcAddressId],
-    references: [productCategoriesTable.id],
+  protocol: one(protocolsTable, {
+    fields: [resourcesTable.ptAddressId],
+    references: [protocolsTable.id],
   }),
 }));
 
@@ -58,11 +58,11 @@ relations(providersTable, ({ many, one }) => ({
   resources: many(resourcesTable),
 }));
 
-export const productCategoriesTable = pgTable("product_categories", {
+export const protocolsTable = pgTable("protocols", {
   id: integer("id").primaryKey().generatedByDefaultAsIdentity(),
   address: varchar({ length: 100 }).notNull().unique(),
 });
-relations(productCategoriesTable, ({ many, one }) => ({
+relations(protocolsTable, ({ many, one }) => ({
   resources: many(resourcesTable),
 }));
 
@@ -71,7 +71,6 @@ export const blockchainTxsTable = pgTable(
   {
     height: bigint({ mode: "bigint" }).notNull(),
     hash: varchar({ length: 70 }).notNull(),
-    isProcessed: boolean("is_processed").notNull(),
   },
   (table) => [
     primaryKey({
@@ -89,4 +88,3 @@ export const detailFilesTable = pgTable("detail_files", {
 export type DbDetailFileInsert = typeof detailFilesTable.$inferInsert;
 export type DbResource = typeof resourcesTable.$inferSelect;
 export type DbResourceInsert = typeof resourcesTable.$inferInsert;
-export type DbProductCategory = typeof productCategoriesTable.$inferSelect;

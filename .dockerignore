@@ -6,4 +6,4 @@ dist
 README.md
 .prettierrc
 volumes
-data
+data/providers.json

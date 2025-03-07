@@ -11,28 +11,27 @@ import { z } from "zod";
 import { Address } from "viem";
 
 /**
- * The details gathered by the provider from the resource source.
- * This is the "details" type of each resource and it is stored in the database.
- * @responsible Product Category Owner
+ * The details will be stored for each created Resource.
+ * @responsible Protocol Owner
  */
-export type ExampleProductDetails = ResourceDetails & {
+export type ExampleResourceDetails = ResourceDetails & {
   Example_Detail: number;
 
-  /* A detail provided by the resource but won't be sent when the user requested it */
+  /* This field won't be sent when the User requested it */
   _examplePrivateDetailWontSentToUser: string;
 };
 
 /**
- * Base provider that defines what kind of actions needs to be implemented for the product category.
- * @responsible Product Category Owner
+ * Base Provider that defines what kind of actions needs to be implemented for the Protocol.
+ * @responsible Protocol Owner
  */
-export abstract class BaseExampleProductProvider extends AbstractProvider<ExampleProductDetails> {
+export abstract class BaseExampleServiceProvider extends AbstractProvider<ExampleResourceDetails> {
   /**
-   * An example function that represents product specific action. This
-   * function has to be implemented by all of the providers that wants
-   * to provide this product.
+   * An example function that represents service specific action. This
+   * function has to be implemented by all of the Providers who wants to.
+   * participate to this Protocol.
    *
-   * The definition is up to product category owner. So if some of the
+   * The definition is up to Protocol Owner. So if some of the
    * arguments are not needed, they can be deleted. Like `agreement` or
    * `resource` can be deleted if they are unnecessary for the implementation.
    * @param agreement On-chain agreement data.
@@ -50,7 +49,7 @@ export abstract class BaseExampleProductProvider extends AbstractProvider<Exampl
     await super.init(providerTag);
 
     /**
-     * If your product has some functionalities/interactions (like "doSomething" method)
+     * If your service has some functionalities/interactions (like "doSomething" method)
      * you can define "Pipe" routes to map the incoming requests from end users to the
      * corresponding methods.
      *
@@ -73,8 +72,8 @@ export abstract class BaseExampleProductProvider extends AbstractProvider<Exampl
           /** ID of the resource. */
           id: z.number(),
 
-          /** Product category address that the resource created in. */
-          pc: addressSchema, // A pre-defined Zod schema for smart contract addresses.
+          /** Protocol address that the resource created in. */
+          pt: addressSchema, // A pre-defined Zod schema for smart contract addresses.
 
           /** Additional argument for the method. */
           argument: z.string(),
@@ -96,7 +95,7 @@ export abstract class BaseExampleProductProvider extends AbstractProvider<Exampl
        */
       const { agreement, resource } = await this.getResource(
         body.id,
-        body.pc as Address,
+        body.pt as Address,
         req.requester
       );
 
