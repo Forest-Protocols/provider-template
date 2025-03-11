@@ -41,7 +41,7 @@ Active Agreements: 0
 CID: bagaaiera3by5b3mykt7n2q2e4yvglgoh33ssoat5qczvgo75ii5yrxamo2aq
 ```
 
-4. Enter an agreement for specific offer hosted by Provider within the PT:
+4. Enter an Agreement for specific offer hosted by Provider within the PT:
 
 ```sh
 forest agreement enter \
