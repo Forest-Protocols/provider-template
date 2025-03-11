@@ -1,0 +1,45 @@
+{
+  "name": "PostgreSQL",
+  "softwareStack": "Database",
+  "tests": [],
+  "offerParams": [
+    {
+      "name": "CPU",
+      "unit": "Cores",
+      "priority": 100,
+      "isPrimary": true
+    },
+    {
+      "name": "RAM",
+      "unit": "GB",
+      "priority": 90,
+      "isPrimary": true
+    },
+    {
+      "name": "Disk Type",
+      "unit": ["SSD", "HDD", "M2"],
+      "priority": 80,
+      "isPrimary": true
+    },
+    {
+      "name": "Disk Size",
+      "unit": "GB",
+      "priority": 70
+    },
+    {
+      "name": "Virtualization",
+      "unit": ["VM", "Container"],
+      "priority": 60
+    },
+    {
+      "name": "CPU Architecture",
+      "unit": ["x86", "ARM"]
+    },
+    {
+      "name": "Isolation",
+      "unit": ["Shared", "Dedicated"],
+      "isFilterable": false,
+      "priority": 40
+    }
+  ]
+}

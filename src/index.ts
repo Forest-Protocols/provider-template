@@ -3,7 +3,7 @@ import {
   Agreement,
   DeploymentStatus,
   Offer,
-  ProductCategoryABI,
+  ProtocolABI,
   Status,
 } from "@forest-protocols/sdk";
 import { Address, parseEventLogs } from "viem";
@@ -12,7 +12,7 @@ import { logger } from "./logger";
 import { rpcClient } from "./clients";
 import { AbstractProvider } from "./abstract/AbstractProvider";
 import * as ansis from "ansis";
-import { MainProviderImplementation } from "./product-category/provider";
+import { MainProviderImplementation } from "./protocol/provider";
 import {
   adjectives,
   animals,
@@ -22,6 +22,9 @@ import {
 import { join } from "path";
 import { readdirSync, readFileSync, statSync } from "fs";
 import { tryParseJSON } from "./utils";
+import { DetailedOffer } from "./types";
+import express from "express";
+import { config } from "./config";
 
 async function sleep(ms: number) {
   return await new Promise((res) => setTimeout(res, ms));
@@ -42,11 +45,19 @@ class Program {
     main: new MainProviderImplementation(),
   };
 
-  listenedPCAddresses: string[] = [];
+  listenedPTAddresses: string[] = [];
 
   constructor() {}
 
   async init() {
+    // Start a healthcheck HTTP server
+    const app = express();
+    app.get("/health", (_, res) => {
+      res.send("Running");
+    });
+
+    app.listen(config.PORT);
+
     // Load detail files into the database
     logger.info("Detail files are loading to the database");
     const basePath = join(process.cwd(), "data/details");
@@ -66,19 +77,19 @@ class Program {
       logger.info(`Provider "${tag}" initializing`);
       await provider.init(tag);
 
-      // Fetch detail links of the Product Categories
-      logger.info(`Checking Product Categories of "${tag}"`);
-      const pcs = await Promise.all(
-        Object.keys(provider.pcClients).map(async (address) => ({
+      // Fetch detail links of the Protocols
+      logger.info(`Checking Protocols of "${tag}"`);
+      const pts = await Promise.all(
+        Object.keys(provider.protocols).map(async (address) => ({
           address,
-          detailsLink: await provider.pcClients[address].getDetailsLink(),
+          detailsLink: await provider.protocols[address].getDetailsLink(),
         }))
       );
 
-      // Save PCs to the database
-      for (const pc of pcs) {
-        this.listenedPCAddresses.push(pc.address);
-        await DB.upsertProductCategory(pc.address as Address, pc.detailsLink);
+      // Save addresses of the Protocols to the database
+      for (const pt of pts) {
+        this.listenedPTAddresses.push(pt.address);
+        await DB.upsertProtocol(pt.address as Address, pt.detailsLink);
       }
 
       logger.info(
@@ -89,7 +100,7 @@ class Program {
     }
 
     // Delete duplicated addresses
-    this.listenedPCAddresses = [...new Set(this.listenedPCAddresses)];
+    this.listenedPTAddresses = [...new Set(this.listenedPTAddresses)];
 
     // Check agreement balances at startup then in every minute
     this.checkAgreementBalances();
@@ -99,7 +110,7 @@ class Program {
   async processAgreementCreated(
     agreement: Agreement,
     offer: Offer,
-    pcAddress: Address,
+    ptAddress: Address,
     provider: AbstractProvider
   ) {
     try {
@@ -107,17 +118,17 @@ class Program {
 
       if (!offerDetailFile) {
         logger.warning(
-          `Details file is not found for Offer ${agreement.offerId}@${pcAddress} (Provider ID: ${provider.actorInfo.id})`
+          `Details file is not found for Offer ${agreement.offerId}@${ptAddress} (Provider ID: ${provider.actorInfo.id})`
         );
       }
 
-      const productCategory = await DB.getProductCategory(pcAddress);
-      const detailedOffer = {
+      const protocol = await DB.getProtocol(ptAddress);
+      const detailedOffer: DetailedOffer = {
         ...offer,
 
         // TODO: Validate schema
-        // If it is a JSON file, try to parse details, if not don't use undefined
-        details: tryParseJSON(offerDetailFile?.content, false),
+        // If it is a JSON file, parse it. Otherwise return it as a string.
+        details: tryParseJSON(offerDetailFile?.content),
       };
       const details = await provider.create(agreement, detailedOffer);
 
@@ -134,7 +145,7 @@ class Program {
           }),
         offerId: offer.id,
         ownerAddress: agreement.userAddr,
-        pcAddressId: productCategory.id,
+        ptAddressId: protocol.id,
         providerId: provider.actorInfo.id,
         details: {
           ...details,
@@ -160,7 +171,7 @@ class Program {
             const resource = await DB.getResource(
               agreement.id,
               agreement.userAddr,
-              pcAddress
+              ptAddress
             );
 
             if (!resource || !resource.isActive) {
@@ -185,7 +196,7 @@ class Program {
               );
 
               // Update the status and gathered details
-              await DB.updateResource(agreement.id, pcAddress, {
+              await DB.updateResource(agreement.id, ptAddress, {
                 deploymentStatus: DeploymentStatus.Running,
                 details: resourceDetails,
               });
@@ -210,40 +221,40 @@ class Program {
       logger.error(`Error while creating the resource: ${err.stack}`);
 
       // Save the resource as failed
-      const pc = await DB.getProductCategory(pcAddress);
+      const pt = await DB.getProtocol(ptAddress);
 
-        // Save that resource as a failed deployment
-        await DB.createResource({
-          id: agreement.id,
-          deploymentStatus: DeploymentStatus.Failed,
-          name: "",
-          pcAddressId: pc.id,
-          offerId: agreement.offerId,
-          providerId: provider.actorInfo.id,
-          ownerAddress: agreement.userAddr,
-          details: {},
-        });
+      // Save that resource as a failed deployment
+      await DB.createResource({
+        id: agreement.id,
+        deploymentStatus: DeploymentStatus.Failed,
+        name: "",
+        ptAddressId: pt.id,
+        offerId: agreement.offerId,
+        providerId: provider.actorInfo.id,
+        ownerAddress: agreement.userAddr,
+        details: {},
+      });
     }
   }
 
   async processAgreementClosed(
     agreement: Agreement,
     offer: Offer,
-    pcAddress: Address,
+    ptAddress: Address,
     provider: AbstractProvider
   ) {
     try {
       const resource = await DB.getResource(
         agreement.id,
         agreement.userAddr,
-        pcAddress
+        ptAddress
       );
       if (resource) {
         const [offerDetailFile] = await DB.getDetailFiles([offer.detailsLink]);
 
         if (!offerDetailFile) {
           logger.warning(
-            `Details file is not found for Offer ${agreement.offerId}@${pcAddress} (Provider ID: ${provider.actorInfo.id})`
+            `Details file is not found for Offer ${agreement.offerId}@${ptAddress} (Provider ID: ${provider.actorInfo.id})`
           );
         }
 
@@ -251,7 +262,7 @@ class Program {
           agreement,
           {
             ...offer,
-            details: tryParseJSON(offerDetailFile?.content, false),
+            details: tryParseJSON(offerDetailFile?.content),
           },
           resource
         );
@@ -271,13 +282,13 @@ class Program {
       logger.error(`Error while deleting the resource: ${err.stack}`);
     }
 
-    await DB.deleteResource(agreement.id, pcAddress);
+    await DB.deleteResource(agreement.id, ptAddress);
   }
 
-  getProductCategoryByAddress(address: Address) {
+  getProtocolByAddress(address: Address) {
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [pcAddress, pc] of Object.entries(provider.pcClients)) {
-        if (pcAddress == address.toLowerCase()) return pc;
+      for (const [ptAddress, pt] of Object.entries(provider.protocols)) {
+        if (ptAddress == address.toLowerCase()) return pt;
       }
     }
   }
@@ -311,15 +322,15 @@ class Program {
             currentBlockNumber
           )}, skipping...`
         );
-        await DB.saveTxAsProcessed(currentBlockNumber, "");
+        await DB.saveTransaction(currentBlockNumber, "");
         currentBlockNumber++;
         continue;
       }
 
       logger.info(`Processing block ${colorNumber(block.number)}`);
       for (const tx of block.transactions) {
-        // If the TX is not belong to any of the product category contracts, skip it.
-        if (!this.listenedPCAddresses.includes(tx.to?.toLowerCase() || "")) {
+        // If the TX is not belong to any of the Protocol contracts that we are listening, just skip it.
+        if (!this.listenedPTAddresses.includes(tx.to?.toLowerCase() || "")) {
           continue;
         }
 
@@ -334,7 +345,7 @@ class Program {
 
         const txRecord = await DB.getTransaction(tx.blockNumber, tx.hash);
 
-        if (txRecord?.isProcessed) {
+        if (txRecord) {
           logger.info(
             `TX (${colorHex(tx.hash)}) is already processed, skipping...`
           );
@@ -342,7 +353,7 @@ class Program {
         }
 
         const events = parseEventLogs({
-          abi: ProductCategoryABI,
+          abi: ProtocolABI,
           logs: receipt.logs,
         });
 
@@ -351,11 +362,11 @@ class Program {
             event.eventName == "AgreementCreated" ||
             event.eventName == "AgreementClosed"
           ) {
-            // Theoretically there is no way for pc to be not found
+            // Theoretically there is no way for a Protocol to be not found
             // Because at startup, they are added based on blockchain data.
-            const pc = this.getProductCategoryByAddress(tx.to!)!;
-            const agreement = await pc.getAgreement(event.args.id as number);
-            const offer = await pc.getOffer(agreement.offerId);
+            const pt = this.getProtocolByAddress(tx.to!)!;
+            const agreement = await pt.getAgreement(event.args.id as number);
+            const offer = await pt.getOffer(agreement.offerId);
             const provider = this.getProviderByAddress(offer.ownerAddr);
 
             // NOTE: Is it possible for a provider to be not found?
@@ -365,11 +376,11 @@ class Program {
               logger.warning(
                 `Provider (id: ${
                   event.args.id
-                }) not found in product category ${colorHex(
-                  tx.to!
-                )} for ${colorKeyword(event.eventName)} event. Skipping...`
+                }) not found in Protocol ${colorHex(tx.to!)} for ${colorKeyword(
+                  event.eventName
+                )} event. Skipping...`
               );
-              await DB.saveTxAsProcessed(
+              await DB.saveTransaction(
                 event.blockNumber,
                 event.transactionHash
               );
@@ -399,16 +410,16 @@ class Program {
             }
 
             // Save the TX as processed
-            await DB.saveTxAsProcessed(
-              event.blockNumber,
-              event.transactionHash
-            );
+            await DB.saveTransaction(event.blockNumber, event.transactionHash);
           }
         }
       }
 
       // Empty hash means block itself, so this block is completely processed
-      await DB.saveTxAsProcessed(currentBlockNumber, "");
+      await DB.saveTransaction(currentBlockNumber, "");
+
+      // Clear all of the data that belongs to the previous block because we have a new "last processed block"
+      await DB.clearBlocks(currentBlockNumber - 1n);
       currentBlockNumber++;
     }
   }
@@ -417,10 +428,10 @@ class Program {
     logger.info("Checking balances of the agreements", { context: "Checker" });
     const closingRequests: Promise<any>[] = [];
 
-    // Check all agreements for all providers in all product categories
+    // Check all agreements for all providers in all Protocols
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [_, pc] of Object.entries(provider.pcClients)) {
-        const agreements = await pc.getAllProviderAgreements(
+      for (const [_, pt] of Object.entries(provider.protocols)) {
+        const agreements = await pt.getAllProviderAgreements(
           provider.account!.address
         );
 
@@ -429,7 +440,7 @@ class Program {
             continue;
           }
 
-          const balance = await pc.getAgreementBalance(agreement.id);
+          const balance = await pt.getAgreementBalance(agreement.id);
 
           // If balance of the agreement is ran out of,
           if (balance <= 0n) {
@@ -443,7 +454,7 @@ class Program {
 
             // Queue closeAgreement call to the promise list.
             closingRequests.push(
-              pc.closeAgreement(agreement.id).catch((err) => {
+              pt.closeAgreement(agreement.id).catch((err) => {
                 logger.error(
                   `Error thrown while trying to force close agreement ${colorNumber(
                     agreement.id

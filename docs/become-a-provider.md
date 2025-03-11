@@ -1,81 +1,27 @@
-# Product Category: `{Product Category Name}`
+# Become a Provider in this Protocol
 
-## Description
+If you want to start providing services in this Protocol follow the steps below.
 
-{Explanation about what this Product Category for}
-
-## Basic Info
-
-| Name                      | Value                                           |
-| ------------------------- | ----------------------------------------------- |
-| PC Smart Contract Address | `{Smart Contract Address}`                      |
-| PC Registration Date      | `{Date of registration}`                        |
-| PC Owner Website          | `{Website address link}`                        |
-| PC Owner Contact Info     | `{Contact info (e-mail, social accounts etc.)}` |
-| PC Owner Wallet Address   | `{Public Wallet Address}`                       |
-| PC Owner Details File CID | `{CID}`                                         |
-
-## Configuration Parameters
-
-This Product Category has the following configuration. Some of them are enforced by the logic of the on-chain smart contract an the others are Validator code.
-
-| Config                                   | Value                      | Enforced by    |
-| ---------------------------------------- | -------------------------- | -------------- |
-| Maximum Number of Validators             | `{Number}`                 | Smart Contract |
-| Maximum Number of Providers              | `{Number}`                 | Smart Contract |
-| Minimum Collateral                       | `{Amount of FOREST Token}` | Smart Contract |
-| Validator Registration Fee               | `{Amount of FOREST Token}` | Smart Contract |
-| Provider Registration Fee                | `{Amount of FOREST Token}` | Smart Contract |
-| Offer Registration Fee                   | `{Amount of FOREST Token}` | Smart Contract |
-| Update Delay for Terms Change            | `{Block Count}`            | Smart Contract |
-| Validators Share of Emissions            | `{+Percentage}`            | Smart Contract |
-| Providers Share of Emissions             | `{+Percentage}`            | Smart Contract |
-| PC Owner Share of Emissions              | `{+Percentage}`            | Smart Contract |
-| CID of the Details File                  | `{CID}`                    | Smart Contract |
-| Performance Optimization Weight          | `{*Percentage}`            | Validator      |
-| Price Optimization Weight                | `{*Percentage}`            | Validator      |
-| Price-to-Performance Optimization Weight | `{*Percentage}`            | Validator      |
-| Popularity Optimization Weight           | `{*Percentage}`            | Validator      |
-
-> Sum of the percentages mentioned with `+` sign must equal to 100. Same thing applies for `*` too.
-
-You can always double-check the on-chain values e.g. [here](https://sepolia-optimism.etherscan.io/address/`{Smart Contract Address}`#readContract)
-
-## Endpoints
-
-| Path         | Params/Body                             | Response                 | Description                                                                                                                                                                                    |
-| ------------ | --------------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `/details`   | `body: string[]`                        | `string[]`               | Retrieves the contents of detail files for the given CIDs. If one CID is given and corresponding file is not found, returns 404/Not Found. Otherwise returns an array of contents of the files |
-| `/resources` | `params: { id?: number, pc?: Address }` | `Resource[] \| Resource` | If `id` and `pc` is given, retrieves one resource information. Otherwise returns all resources of the requester                                                                                |
-| `{Endpoint}` | `{Body}`                                | `{Return Type}`          | `{Description}`                                                                                                                                                                                |
-
-## Tests and Quality Thresholds [WIP]
-
-The Validators are performing a number of tests on Resources to ensure quality across the board. Below is a list of checked Benchmarks:
-
-| Name          | Units     | Threshold Value | Min / Max   |
-| ------------- | --------- | --------------- | ----------- |
-| {Test Name 1} | `{Units}` | `{Value}`       | {Min / Max} |
-| {Test Name 2} | `{Units}` | `{Value}`       | {Min / Max} |
-| {Test Name 3} | `{Units}` | `{Value}`       | {Min / Max} |
-
-More in-depth descriptions of the Tests:
-
-| Name          | Description             |
-| ------------- | ----------------------- |
-| {Test Name 1} | {Long form description} |
-| {Test Name 2} | {Long form description} |
-| {Test Name 3} | {Long form description} |
-
-## Become a Provider
+1. [Register in the Network](#1-register-in-the-network),
+2. [Register in this Protocol](#2-register-in-this-protocol),
+3. [Register Offers](#3-register-offers),
+4. [Fork and Implement This Repository](#4-fork-and-implement-this-repository),
+5. [Run the Provider Daemon](#5-run-the-provider-daemon).
 
 ### Step-by-step instructions
 
-In order to start providing services for this Product Category you need to follow the steps below. But before, you need to install Forest Protocols CLI by following these instructions: [link](https://github.com/Forest-Protocols/forest-cli)
+#### Prerequisites
 
-#### 1. Register in the Protocol
+Install [Node.js](https://nodejs.org) (min version 22.12.0) environment, Forest Protocols [CLI](https://github.com/Forest-Protocols/forest-cli) tool and a functional PostgreSQL (min version 16) database for the daemon. To install that environment, you can check the links below;
 
-> You can skip this part if you are already registered in the Protocol as a Provider.
+- Node.js [official](https://nodejs.org/en/download) downloads page
+- [nvm](https://github.com/nvm-sh/nvm) - Node Version Manager, helps to manage multiple Node versions at the same time.
+- PostgreSQL [official](https://www.postgresql.org/download/) downloads page (if you want to run Postgres natively)
+- Docker [image](https://hub.docker.com/_/postgres) for PostgreSQL (if you want to run dockerized Postgres)
+
+#### 1. Register in the Network
+
+> You can skip this part if you are already registered in the Network as a Provider.
 
 1. Create a JSON detail file in the following schema and save it somewhere:
 
@@ -91,38 +37,46 @@ In order to start providing services for this Product Category you need to follo
 3. Take that account's private key and save it to a file.
 4. Put the JSON file and that private key file into the same folder.
 5. Open up a terminal in that folder.
-   > If you are planning to use different accounts for billing and operating, you need to pass additional flags: `--billing <address>` and `--operator <address>`. If you don't need that, just skip those flags.
-6. Run the following command:
+   > If you are planning to use different accounts for billing and operating, you need to pass additional flags: `--billing <address>` and `--operator <address>`. This separation increases security of your configuration. Setting a billing address allows for having a separate address / identity for claiming your earnings and rewards while setting an operator allows you to delegate the operational work of running a daemon and servicing user requests to a third-party or a hotkey. If you don't need that, just skip those flags and the logic of the Protocol will use your main address as your billing and operator address.
+6. Run the following command to register in the Protocol to be allowed to interact with Protocol's resources:
    ```sh
     forest register provider \
         --details <JSON file name> \
         --account <private key file>
    ```
+   TESTNET NOTE: if you need testnet tokens reach out to the Forest Protocols team on [Discord](https://discord.gg/2MsTWq2tc7).
 7. Save your detail file somewhere. Later you'll place this file into `data/details` folder.
 
-#### 2. Register in this Product Category
+#### 2. Register in this Protocol
 
-Use the following command to register in this Product Category:
+You can take part in many Protocols. In order to join this one run the following command:
 
 ```shell
 forest provider register-in \
   --account <private key file path OR private key itself of the Provider account> \
-  {Product Category Smart Contract Address} \
-  {Minimum Collateral}
+  --protocol <Protocol Smart Contract Address> \
+  --collateral <Minimum Collateral>
 ```
 
 #### 3. Register Offers
 
-Now that you are registered in the Protocol and this Product Category, the next step is to register your Offers.
+Now that you are registered in the Network and this Protocol, the next step is to register your Offers.
 
 First, create files that contain details for each Offer you plan to register. You have two options for these detail files:
 
-- Create a plain text or Markdown file with human-readable Offer details. This approach does not allow parameterization of Offers. Also these details won't be visible in the CLI.
-- Create a JSON file following the schema below. This approach makes Offer details visible and filterable in the CLI and marketplace while also allowing parameterization of resource creation.
+- Create a plain text or Markdown file with human-readable Offer details. This approach does not allow parameterization of Offers. Also these details won't be visible in the CLI. However this approach is often good enough for a number of use cases like API access.
+- Create a JSON file following the schema below. This approach makes Offer details visible and filterable in the CLI and the Marketplace while also allowing parameterization of resource creation.
 
-##### 3.1 JSON Schemed Offer Details
+##### 3.1 Creating the Offer details file
 
-**If you are not using this option, you may skip this section.**
+**Plain text example**
+
+```
+Minimum of 2 requests per minute.
+At least 200 API calls per subscription per month.
+```
+
+**JSON schemed example**
 
 Create a JSON file following the type definitions below:
 
@@ -175,12 +129,18 @@ An example JSON file based on these type definitions:
 }
 ```
 
-After creating the Offer details file, save it in an accessible location. Now register your Offer using the following command:
+##### 3.2 Saving the file
+
+After creating the Offer details file, save it in an accessible location.
+
+##### 3.3 Registering the Offer on-chain
+
+Now register your Offer using the following command:
 
 ```shell
 forest provider register-offer \
-     {Product Category Smart Contract Address} \
     --account <private key file path OR private key itself of the PROV account> \
+    --protocol <Protocol Smart Contract Address> \
     --details <path of the details file> \
     --fee 1 \
     --stock 100
@@ -193,7 +153,7 @@ forest provider register-offer \
 
 Fork this repository, then clone it locally.
 
-Open the `src/product-category/provider.ts` file and implement all of the following methods;
+Open the `src/protocol/provider.ts` file and implement all of the following methods;
 
 | Method                                                                                          | Description                                                                                                                                                                                                                                                                                                                          |
 | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -217,7 +177,7 @@ Now, create a `.env` file based on the example (`.env.example`) and configure th
 
 Then rename `data/providers.example.jsonc` to `data/providers.json`, clear the comments inside of it and fill the `main` tag with your private keys.
 
-As the last step, don't forget to put detail files of the Provider, Product Category and Offers into `data/details` folder.
+As the last step, don't forget to put detail files of the Provider, Protocol and Offers into `data/details` folder.
 
 #### 5. Run the Provider Daemon
 
@@ -259,18 +219,3 @@ docker compose up # Add "-d" to run in detached mode
 ```
 
 That's all folks!
-
-## Become a Validator [WIP]
-
-#### Step-by-step instructions
-
-In order to start providing validation services for this Product Category you need to:
-
-1. Run your Validator Node based on the code from this repository. Detailed instructions here: [link](https://github.com/this_repo/validator/README.md)
-2. Install a Forest Protocols CLI by following these instructions: [link](https://github.com/forest-protocols/cli....)
-3. Using the CLI register in the Protocol as a Validator:
-   a. `command 1`
-   b. `command 2`
-4. Using the CLI register in our Product Category:
-   a. `command 1`
-   b. `command 2`

@@ -1,17 +1,17 @@
 {
   "name": "provider-template",
   "version": "0.0.1",
-  "description": "Base provider template for new product categories",
-  "homepage": "https://github.com/dbForest/provider-template#readme",
+  "description": "Base Provider template for new Protocols",
+  "homepage": "https://github.com/Forest-Protocols/provider-template#readme",
   "bugs": {
-    "url": "https://github.com/dbForest/provider-template/issues"
+    "url": "https://github.com/Forest-Protocols/provider-template/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dbForest/provider-template.git"
+    "url": "git+https://github.com/Forest-Protocols/provider-template.git"
   },
   "license": "MIT",
-  "author": "Forest Protocols Development Team",
+  "author": "Forest Network Development Team",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -26,6 +26,7 @@
     "db:push": "drizzle-kit push"
   },
   "devDependencies": {
+    "@types/express": "^5.0.0",
     "@types/node": "^22.10.5",
     "@types/pg": "^8.11.10",
     "drizzle-kit": "^0.30.1",
@@ -36,10 +37,11 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.32.1",
-    "@forest-protocols/sdk": "^1.24.2",
+    "@forest-protocols/sdk": "^1.32.0",
     "ansis": "^3.7.0",
     "drizzle-orm": "^0.38.3",
     "ethers": "^6.13.5",
+    "express": "^4.21.2",
     "pg": "^8.13.1",
     "unique-names-generator": "^4.7.1",
     "viem": "^2.22.7",
