@@ -25,6 +25,14 @@ git remote add upstream git@github.com:Forest-Protocols/provider-template.git
 
 Ensure you are in your own branch, then merge it with the base repository:
 
+Before, merge you have to fetch the remote branch to your local  with following command:
+
+```shell
+git fetch --all
+```
+
+Then, merge the base repository into your branch:
+
 ```shell
 git merge remotes/upstream/main
 ```
