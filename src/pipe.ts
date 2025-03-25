@@ -4,7 +4,7 @@ import {
   PipeResponseCode,
   PipeRouteHandler,
   validateBodyOrParams,
-  XMTPPipe,
+  XMTPv3Pipe,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "./abstract/AbstractProvider";
 import { z } from "zod";
@@ -15,7 +15,7 @@ import { logger } from "./logger";
  * Operator pipes in this daemon
  */
 export const pipes: {
-  [operatorAddr: string]: XMTPPipe;
+  [operatorAddr: string]: XMTPv3Pipe;
 } = {};
 
 /**

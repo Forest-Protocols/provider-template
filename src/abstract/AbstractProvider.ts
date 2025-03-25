@@ -17,14 +17,12 @@ import {
   Provider,
   ProviderDetails,
   validateBodyOrParams,
-} from "@forest-protocols/sdk";
-import {
+  XMTPv3Pipe,
   Agreement,
   PipeMethod,
   PipeResponseCode,
   Protocol,
   Registry,
-  XMTPPipe,
 } from "@forest-protocols/sdk";
 import { yellow } from "ansis";
 import { readFileSync, statSync } from "fs";
@@ -71,7 +69,11 @@ export abstract class AbstractProvider<
     );
 
     // Initialize clients
-    this.registry = Registry.createWithClient(rpcClient, this.account);
+    this.registry = new Registry({
+      client: rpcClient,
+      account: this.account,
+      address: config.REGISTRY_ADDRESS,
+    });
 
     this.logger.info("Checking in Network Actor registration");
     const provider = await this.registry.getActor(this.account.address);
@@ -100,17 +102,18 @@ export abstract class AbstractProvider<
     );
 
     for (const ptAddress of ptAddresses) {
-      this.protocols[ptAddress.toLowerCase()] = Protocol.createWithClient(
-        rpcClient,
-        ptAddress as Address,
-        this.account
-      );
+      this.protocols[ptAddress.toLowerCase()] = new Protocol({
+        address: ptAddress as Address,
+        client: rpcClient,
+        account: this.account,
+        registryContractAddress: config.REGISTRY_ADDRESS,
+      });
     }
 
     // Initialize pipe for this operator address if it is not instantiated yet.
     if (!pipes[this.actorInfo.operatorAddr]) {
-      pipes[this.actorInfo.operatorAddr] = new XMTPPipe(
-        providerConfig.operatorWalletPrivateKey,
+      pipes[this.actorInfo.operatorAddr] = new XMTPv3Pipe(
+        providerConfig.operatorWalletPrivateKey
       );
       // Disable console.info to get rid out of "XMTP dev" warning
       const consoleInfo = console.info;
@@ -156,10 +159,7 @@ export abstract class AbstractProvider<
           }
         } catch (err: any) {
           this.logger.error(`Couldn't load OpenAPI spec file: ${err.message}`);
-          return {
-            code: PipeResponseCode.OK,
-            body: "",
-          };
+          throw new PipeErrorNotFound(`OpenAPI spec file`);
         }
 
         throw new PipeErrorNotFound(`OpenAPI spec file`);

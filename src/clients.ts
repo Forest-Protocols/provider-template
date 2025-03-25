@@ -1,8 +1,8 @@
 import { createPublicClient, http } from "viem";
 import { config } from "./config";
-import { forestChainToViemChain } from "@forest-protocols/sdk";
+import { forestChainToViemChain, httpTransport } from "@forest-protocols/sdk";
 
 export const rpcClient = createPublicClient({
   chain: forestChainToViemChain(config.CHAIN),
-  transport: http(`http://${config.RPC_HOST}`),
+  transport: httpTransport(config.CHAIN, config.RPC_HOST),
 });

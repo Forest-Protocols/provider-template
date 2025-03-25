@@ -3,9 +3,11 @@ import { cyan, red } from "ansis";
 import { readFileSync, statSync } from "fs";
 import { join } from "path";
 import {
+  addressSchema,
   ForestRegistryAddress,
   getContractAddressByChain,
   privateKeySchema,
+  setGlobalRateLimit,
 } from "@forest-protocols/sdk";
 import { nonEmptyStringSchema } from "./validation/schemas";
 import { fromError } from "zod-validation-error";
@@ -19,16 +21,23 @@ function parseEnv() {
     RPC_HOST: nonEmptyStringSchema,
     CHAIN: z.enum(["anvil", "optimism", "optimism-sepolia"]).default("anvil"),
     PORT: z.coerce.number().default(3000),
+    RATE_LIMIT: z.coerce.number().default(20),
+    REGISTRY_ADDRESS: addressSchema.optional(),
   });
   const parsedEnv = environmentSchema.safeParse(process.env, {});
 
   if (parsedEnv.error) {
+    const error = parsedEnv.error.errors[0];
     console.error(
-      "Error while parsing environment variables:",
-      red(fromError(parsedEnv).toString())
+      red(
+        `Error while parsing environment variable "${error.path}": ${error.message}`
+      )
     );
     process.exit(1);
   }
+
+  // Set global rate limit based on the given value (or default)
+  setGlobalRateLimit(parsedEnv.data.RATE_LIMIT);
 
   return parsedEnv.data;
 }

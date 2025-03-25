@@ -166,14 +166,7 @@ Once implementation is complete, place your Provider and Offer detail files into
 
 > You can create subdirectories to better organize detail files.
 
-Now, create a `.env` file based on the example (`.env.example`) and configure the necessary variables:
-
-| Name           | Possible Values                                              | Default     | Description                                           |
-| -------------- | ------------------------------------------------------------ | ----------- | ----------------------------------------------------- |
-| `NODE_ENV`     | `dev`, `production`                                          | `dev`       | The environment mode.                                 |
-| `RPC_URL`      | An RPC host without the protocol part (`http://` or `ws://`) | `undefined` | The RPC host used to communicate with the blockchain. |
-| `CHAIN`        | `anvil`, `optimism`, `optimism-sepolia`                      | `anvil`     | Specifies the blockchain to use.                      |
-| `DATABASE_URL` | PostgreSQL connection string                                 | `undefined` | The database connection string for the daemon.        |
+Now, create a `.env` file based on the example (`.env.example`) and configure the necessary variables.
 
 Then rename `data/providers.example.jsonc` to `data/providers.json`, clear the comments inside of it and fill the `main` tag with your private keys.
 
