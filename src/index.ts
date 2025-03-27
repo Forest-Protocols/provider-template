@@ -77,24 +77,21 @@ class Program {
       logger.info(`Provider "${tag}" initializing`);
       await provider.init(tag);
 
-      // Fetch detail links of the Protocols
-      logger.info(`Checking Protocols of "${tag}"`);
-      const pts = await Promise.all(
-        Object.keys(provider.protocols).map(async (address) => ({
-          address,
-          detailsLink: await provider.protocols[address].getDetailsLink(),
-        }))
-      );
+      // Fetch detail links of the Protocol
+      logger.info(`Checking details of the Protocol`);
+      const ptDetailsLink = await provider.protocol.getDetailsLink();
 
-      // Save addresses of the Protocols to the database
-      for (const pt of pts) {
-        this.listenedPTAddresses.push(pt.address);
-        await DB.upsertProtocol(pt.address as Address, pt.detailsLink);
-      }
+      // Save address of the Protocol to the database
+      this.listenedPTAddresses.push(provider.protocol.address.toLowerCase());
+      await DB.upsertProtocol(provider.protocol.address, ptDetailsLink);
 
       logger.info(
-        `Provider initialized; tag: ${tag}, address: ${ansis.yellow.bold(
+        `Provider initialized; tag: ${ansis.cyanBright.bold(
+          tag
+        )}, address: ${ansis.yellow.bold(
           provider.actorInfo.ownerAddr
+        )}, operates on Protocol: ${ansis.yellow.bold(
+          provider.protocol.address
         )}`
       );
     }
@@ -287,8 +284,8 @@ class Program {
 
   getProtocolByAddress(address: Address) {
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [ptAddress, pt] of Object.entries(provider.protocols)) {
-        if (ptAddress == address.toLowerCase()) return pt;
+      if (provider.protocol.address.toLowerCase() == address.toLowerCase()) {
+        return provider.protocol;
       }
     }
   }
@@ -313,17 +310,6 @@ class Program {
       if (!block) {
         logger.info(`Waiting for block ${colorNumber(currentBlockNumber)}...`);
         await this.waitBlock(currentBlockNumber);
-        continue;
-      }
-
-      if (block.transactions.length == 0) {
-        logger.info(
-          `No transactions found in block ${colorNumber(
-            currentBlockNumber
-          )}, skipping...`
-        );
-        await DB.saveTransaction(currentBlockNumber, "");
-        currentBlockNumber++;
         continue;
       }
 
@@ -393,19 +379,27 @@ class Program {
               )} received for provider ${colorHex(provider.account!.address)}`
             );
 
-            if (event.eventName == "AgreementCreated") {
-              await this.processAgreementCreated(
-                agreement,
-                offer,
-                tx.to!,
-                provider
-              );
-            } else {
-              await this.processAgreementClosed(
-                agreement,
-                offer,
-                tx.to!,
-                provider
+            try {
+              if (event.eventName == "AgreementCreated") {
+                await this.processAgreementCreated(
+                  agreement,
+                  offer,
+                  tx.to!,
+                  provider
+                );
+              } else {
+                await this.processAgreementClosed(
+                  agreement,
+                  offer,
+                  tx.to!,
+                  provider
+                );
+              }
+            } catch (err: any) {
+              logger.error(
+                ansis.red(
+                  `Error while processing the event: ${err?.stack || err}`
+                )
               );
             }
 
@@ -413,6 +407,14 @@ class Program {
             await DB.saveTransaction(event.blockNumber, event.transactionHash);
           }
         }
+      }
+
+      if (block.transactions.length == 0) {
+        logger.info(
+          `No transactions found in block ${colorNumber(
+            block.number
+          )}, skipping...`
+        );
       }
 
       // Empty hash means block itself, so this block is completely processed
@@ -430,39 +432,37 @@ class Program {
 
     // Check all agreements for all providers in all Protocols
     for (const [_, provider] of Object.entries(this.providers)) {
-      for (const [_, pt] of Object.entries(provider.protocols)) {
-        const agreements = await pt.getAllProviderAgreements(
-          provider.account!.address
+      const agreements = await provider.protocol.getAllProviderAgreements(
+        provider.account!.address
+      );
+
+      for (const agreement of agreements) {
+        if (agreement.status == Status.NotActive) {
+          continue;
+        }
+
+        const balance = await provider.protocol.getRemainingAgreementBalance(
+          agreement.id
         );
 
-        for (const agreement of agreements) {
-          if (agreement.status == Status.NotActive) {
-            continue;
-          }
+        // If balance of the agreement is ran out of,
+        if (balance <= 0n) {
+          logger.warning(
+            `User ${
+              agreement.userAddr
+            } has ran out of balance for agreement ${colorNumber(agreement.id)}`
+          );
 
-          const balance = await pt.getAgreementBalance(agreement.id);
-
-          // If balance of the agreement is ran out of,
-          if (balance <= 0n) {
-            logger.warning(
-              `User ${
-                agreement.userAddr
-              } has ran out of balance for agreement ${colorNumber(
-                agreement.id
-              )}`
-            );
-
-            // Queue closeAgreement call to the promise list.
-            closingRequests.push(
-              pt.closeAgreement(agreement.id).catch((err) => {
-                logger.error(
-                  `Error thrown while trying to force close agreement ${colorNumber(
-                    agreement.id
-                  )}: ${err.stack}`
-                );
-              })
-            );
-          }
+          // Queue closeAgreement call to the promise list.
+          closingRequests.push(
+            provider.protocol.closeAgreement(agreement.id).catch((err) => {
+              logger.error(
+                `Error thrown while trying to force close agreement ${colorNumber(
+                  agreement.id
+                )}: ${err.stack}`
+              );
+            })
+          );
         }
       }
     }

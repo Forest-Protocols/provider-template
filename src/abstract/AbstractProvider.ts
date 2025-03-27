@@ -27,7 +27,7 @@ import {
 import { yellow } from "ansis";
 import { readFileSync, statSync } from "fs";
 import { join } from "path";
-import { Account, Address } from "viem";
+import { Account, Address, nonceManager } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 
@@ -40,7 +40,7 @@ export abstract class AbstractProvider<
 > {
   registry!: Registry;
 
-  protocols: { [address: string]: Protocol } = {};
+  protocol!: Protocol;
 
   account!: Account;
 
@@ -66,6 +66,7 @@ export abstract class AbstractProvider<
     // Setup Provider account
     this.account = privateKeyToAccount(
       providerConfig.providerWalletPrivateKey as Address,
+      { nonceManager }
     );
 
     // Initialize clients
@@ -97,18 +98,34 @@ export abstract class AbstractProvider<
     // `DB.upsertProvider` already checked the existence of the details file
     this.details = tryParseJSON(provDetailFile.content);
 
-    const ptAddresses = await this.registry.getRegisteredPTsOfProvider(
-      provider.id
-    );
+    let ptAddress = providerConfig.protocolAddress;
+    if (ptAddress === undefined) {
+      const registeredPts = await this.registry.getRegisteredPTsOfProvider(
+        this.actorInfo.id
+      );
 
-    for (const ptAddress of ptAddresses) {
-      this.protocols[ptAddress.toLowerCase()] = new Protocol({
-        address: ptAddress as Address,
-        client: rpcClient,
-        account: this.account,
-        registryContractAddress: config.REGISTRY_ADDRESS,
-      });
+      if (registeredPts.length == 0) {
+        throw new Error(
+          `Not found any registered Protocol for Provider tag "${providerTag}". Please register within a Protocol and try again`
+        );
+      }
+
+      ptAddress = registeredPts[0];
+      this.logger.warning(
+        `First registered Protocol address (${yellow.bold(
+          ptAddress
+        )}) is using as Protocol address`
+      );
+    } else {
+      this.logger.info(`Using Protocol address ${yellow.bold(ptAddress)}`);
     }
+
+    this.protocol = new Protocol({
+      address: ptAddress,
+      client: rpcClient,
+      account: this.account,
+      registryContractAddress: config.REGISTRY_ADDRESS,
+    });
 
     // Initialize pipe for this operator address if it is not instantiated yet.
     if (!pipes[this.actorInfo.operatorAddr]) {
@@ -247,13 +264,6 @@ export abstract class AbstractProvider<
   }
 
   /**
-   * Gets the Protocol instance from the registered Protocols list.
-   */
-  getProtocol(ptAddress: Address) {
-    return this.protocols[ptAddress.toLowerCase()];
-  }
-
-  /**
    * Gets a resource that stored in the database and the corresponding agreement from blockchain
    * @param id ID of the resource/agreement
    * @param ptAddress Protocol address
@@ -274,13 +284,12 @@ export abstract class AbstractProvider<
       throw new PipeErrorNotFound("Resource");
     }
 
-    const protocol = this.getProtocol(ptAddress); // Protocol instance.
-    const agreement = await protocol.getAgreement(resource.id); // Retrieve the agreement details from chain
+    const agreement = await this.protocol.getAgreement(resource.id); // Retrieve the agreement details from chain
 
     return {
       resource,
       agreement,
-      protocol,
+      protocol: this.protocol,
     };
   }
 

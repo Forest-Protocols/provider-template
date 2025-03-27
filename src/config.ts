@@ -6,7 +6,7 @@ import {
   addressSchema,
   ForestRegistryAddress,
   getContractAddressByChain,
-  privateKeySchema,
+  PrivateKeySchema,
   setGlobalRateLimit,
 } from "@forest-protocols/sdk";
 import { nonEmptyStringSchema } from "./validation/schemas";
@@ -44,9 +44,10 @@ function parseEnv() {
 
 function parseProviderConfig() {
   const providerSchema = z.object({
-    providerWalletPrivateKey: privateKeySchema,
-    billingWalletPrivateKey: privateKeySchema,
-    operatorWalletPrivateKey: privateKeySchema,
+    providerWalletPrivateKey: PrivateKeySchema,
+    billingWalletPrivateKey: PrivateKeySchema,
+    operatorWalletPrivateKey: PrivateKeySchema,
+    protocolAddress: addressSchema.optional(),
   });
 
   const providers: {
@@ -75,9 +76,10 @@ function parseProviderConfig() {
       process.exit(1);
     }
   } else {
-    const regex = /^(PROVIDER|BILLING|OPERATOR)_PRIVATE_KEY_([\w]+)$/;
+    const pkRegex = /^(PROVIDER|BILLING|OPERATOR)_PRIVATE_KEY_([\w]+)$/;
+    const ptAddressRegex = /^PROTOCOL_ADDRESS_([\w]+)$/;
     for (const [name, value] of Object.entries(process.env)) {
-      const match = name.match(regex);
+      const match = name.match(pkRegex);
       if (match) {
         const keyType = match[1];
         const providerTag = match[2];
@@ -100,6 +102,12 @@ function parseProviderConfig() {
           case "BILLING":
             providers[providerTag].billingWalletPrivateKey = value as Address;
             break;
+        }
+      } else {
+        const ptMatch = name.match(ptAddressRegex);
+        if (ptMatch) {
+          const providerTag = ptMatch[1];
+          providers[providerTag].protocolAddress = value as Address;
         }
       }
     }
