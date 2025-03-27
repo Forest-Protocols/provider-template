@@ -107,6 +107,15 @@ function parseProviderConfig() {
         const ptMatch = name.match(ptAddressRegex);
         if (ptMatch) {
           const providerTag = ptMatch[1];
+
+          if (!providers[providerTag]) {
+            providers[providerTag] = {
+              billingWalletPrivateKey: "0x",
+              operatorWalletPrivateKey: "0x",
+              providerWalletPrivateKey: "0x",
+            };
+          }
+
           providers[providerTag].protocolAddress = value as Address;
         }
       }
