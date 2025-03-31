@@ -37,7 +37,7 @@
   },
   "dependencies": {
     "@dotenvx/dotenvx": "^1.32.1",
-    "@forest-protocols/sdk": "^2.0.0",
+    "@forest-protocols/sdk": "^2.0.1",
     "ansis": "^3.7.0",
     "drizzle-orm": "^0.38.3",
     "ethers": "^6.13.5",

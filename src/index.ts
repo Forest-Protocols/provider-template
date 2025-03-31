@@ -99,9 +99,9 @@ class Program {
     // Delete duplicated addresses
     this.listenedPTAddresses = [...new Set(this.listenedPTAddresses)];
 
-    // Check agreement balances at startup then in every minute
+    // Check agreement balances at startup then in every 30 minute
     this.checkAgreementBalances();
-    setInterval(() => this.checkAgreementBalances(), 60 * 1000);
+    setInterval(() => this.checkAgreementBalances(), 30 * 60 * 1000);
   }
 
   async processAgreementCreated(
@@ -308,12 +308,12 @@ class Program {
       const block = await this.getBlock(currentBlockNumber);
 
       if (!block) {
-        logger.info(`Waiting for block ${colorNumber(currentBlockNumber)}...`);
+        logger.debug(`Waiting for block ${colorNumber(currentBlockNumber)}...`);
         await this.waitBlock(currentBlockNumber);
         continue;
       }
 
-      logger.info(`Processing block ${colorNumber(block.number)}`);
+      logger.debug(`Processing block ${colorNumber(block.number)}`);
       for (const tx of block.transactions) {
         // If the TX is not belong to any of the Protocol contracts that we are listening, just skip it.
         if (!this.listenedPTAddresses.includes(tx.to?.toLowerCase() || "")) {
@@ -325,14 +325,14 @@ class Program {
         });
 
         if (receipt.status == "reverted") {
-          logger.info(`TX (${colorHex(tx.hash)}) is reverted, skipping...`);
+          logger.debug(`TX (${colorHex(tx.hash)}) is reverted, skipping...`);
           continue;
         }
 
         const txRecord = await DB.getTransaction(tx.blockNumber, tx.hash);
 
         if (txRecord) {
-          logger.info(
+          logger.debug(
             `TX (${colorHex(tx.hash)}) is already processed, skipping...`
           );
           continue;
@@ -349,7 +349,7 @@ class Program {
             event.eventName == "AgreementClosed"
           ) {
             // Theoretically there is no way for a Protocol to be not found
-            // Because at startup, they are added based on blockchain data.
+            // Because at startup, they were added based on blockchain data.
             const pt = this.getProtocolByAddress(tx.to!)!;
             const agreement = await pt.getAgreement(event.args.id as number);
             const offer = await pt.getOffer(agreement.offerId);
@@ -376,7 +376,9 @@ class Program {
             logger.info(
               `Event ${colorKeyword(
                 event.eventName
-              )} received for provider ${colorHex(provider.account!.address)}`
+              )} received for provider ${colorHex(
+                provider.account!.address
+              )} from ${colorHex(tx.from)}`
             );
 
             try {
@@ -410,7 +412,7 @@ class Program {
       }
 
       if (block.transactions.length == 0) {
-        logger.info(
+        logger.debug(
           `No transactions found in block ${colorNumber(
             block.number
           )}, skipping...`
@@ -427,7 +429,7 @@ class Program {
   }
 
   async checkAgreementBalances() {
-    logger.info("Checking balances of the agreements", { context: "Checker" });
+    logger.info("Checking balances of the Agreements", { context: "Checker" });
     const closingRequests: Promise<any>[] = [];
 
     // Check all agreements for all providers in all Protocols
@@ -450,14 +452,14 @@ class Program {
           logger.warning(
             `User ${
               agreement.userAddr
-            } has ran out of balance for agreement ${colorNumber(agreement.id)}`
+            } has ran out of balance for Agreement ${colorNumber(agreement.id)}`
           );
 
           // Queue closeAgreement call to the promise list.
           closingRequests.push(
             provider.protocol.closeAgreement(agreement.id).catch((err) => {
               logger.error(
-                `Error thrown while trying to force close agreement ${colorNumber(
+                `Error thrown while trying to force close Agreement ${colorNumber(
                   agreement.id
                 )}: ${err.stack}`
               );
@@ -473,7 +475,7 @@ class Program {
   async findStartBlock() {
     const latestProcessedBlock = await DB.getLatestProcessedBlockHeight();
 
-    // TODO: Find the registration TX of the provider and start from there
+    // TODO: Find the registration TX of the provider and start from there if the latestProcessedBlock is undefined
 
     return latestProcessedBlock || (await rpcClient.getBlockNumber());
   }
