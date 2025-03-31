@@ -4,6 +4,7 @@ import {
   PipeError,
   PipeMethod,
   PipeResponseCode,
+  Protocol,
 } from "@forest-protocols/sdk";
 import { AbstractProvider } from "@/abstract/AbstractProvider";
 import { DetailedOffer, Resource, ResourceDetails } from "@/types";
@@ -13,6 +14,8 @@ import { Address } from "viem";
 import { z } from "zod";
 import { validateBody } from "@/helpers";
 import { tryParseJSON } from "@/utils";
+import { rpcClient } from "@/clients";
+import { config } from "@/config";
 
 /**
  * The details will be stored for each created Resource.
@@ -93,10 +96,7 @@ export abstract class BaseMachineTranslationServiceProvider extends AbstractProv
         req.requester,
       );
 
-      const offer = await this.getProtocol(body.pc as Address).getOffer(
-        agreement.offerId,
-      );
-
+      const offer = await this.protocol.getOffer(agreement.offerId);
       const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
 
       const isAllowed = await this.checkCallLimit(agreement, resource, {
@@ -142,18 +142,20 @@ export abstract class BaseMachineTranslationServiceProvider extends AbstractProv
       const bodySchema = z.object({
         id: z.number(),
         text: z.string(),
-        pc: addressSchema,
+        pt: addressSchema,
       });
       const body = validateBody(req.body, bodySchema);
       const { resource, agreement } = await this.getResource(
         body.id,
-        body.pc as Address,
+        body.pt as Address,
         req.requester,
       );
 
-      const offer = await this.getProtocol(body.pc as Address).getOffer(
-        agreement.offerId,
-      );
+      const offer = await new Protocol({
+        address: body.pt as Address,
+        client: rpcClient,
+        registryContractAddress: config.REGISTRY_ADDRESS,
+      }).getOffer(agreement.offerId);
 
       const [offerDetails] = await DB.getDetailFiles([offer.detailsLink]);
 
