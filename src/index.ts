@@ -99,9 +99,24 @@ class Program {
     // Delete duplicated addresses
     this.listenedPTAddresses = [...new Set(this.listenedPTAddresses)];
 
-    // Check agreement balances at startup then in every 30 minute
-    this.checkAgreementBalances();
-    setInterval(() => this.checkAgreementBalances(), 30 * 60 * 1000);
+    // Check balances of the Agreements at startup and then in every 30 minute
+    const errorHandler = (err: any) =>
+      logger.error(
+        ansis.red(
+          `Error while checking balances of the Agreements: ${
+            err?.message || err?.stack || err
+          }`
+        )
+      );
+
+    this.checkAgreementBalances()
+      .catch(errorHandler)
+      .finally(() => {
+        setInterval(
+          () => this.checkAgreementBalances().catch(errorHandler),
+          30 * 60 * 1000
+        );
+      });
   }
 
   async processAgreementCreated(
@@ -425,6 +440,9 @@ class Program {
       // Clear all of the data that belongs to the previous block because we have a new "last processed block"
       await DB.clearBlocks(currentBlockNumber - 1n);
       currentBlockNumber++;
+
+      // Wait a little bit before going to the next block
+      await sleep(500);
     }
   }
 

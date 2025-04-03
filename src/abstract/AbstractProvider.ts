@@ -36,7 +36,7 @@ import { z } from "zod";
  * @responsible Admin
  */
 export abstract class AbstractProvider<
-  T extends ResourceDetails = ResourceDetails,
+  T extends ResourceDetails = ResourceDetails
 > {
   registry!: Registry;
 
@@ -89,7 +89,7 @@ export abstract class AbstractProvider<
     await DB.upsertProvider(
       this.actorInfo.id,
       this.actorInfo.detailsLink,
-      this.actorInfo.ownerAddr,
+      this.actorInfo.ownerAddr
     );
 
     // TODO: Validate details schema
@@ -132,22 +132,16 @@ export abstract class AbstractProvider<
       pipes[this.actorInfo.operatorAddr] = new XMTPv3Pipe(
         providerConfig.operatorWalletPrivateKey
       );
-      // Disable console.info to get rid out of "XMTP dev" warning
-      const consoleInfo = console.info;
-      console.info = () => { };
 
       // Use dev env only for local and sepolia chains
       await pipes[this.actorInfo.operatorAddr].init(
-        config.CHAIN === "optimism" ? "production" : "dev",
+        config.CHAIN === "optimism" ? "production" : "dev"
       );
-
-      // Revert back console.info
-      console.info = consoleInfo;
 
       this.logger.info(
         `Initialized Pipe for operator ${yellow.bold(
-          this.actorInfo.operatorAddr,
-        )}`,
+          this.actorInfo.operatorAddr
+        )}`
       );
 
       // Setup operator specific endpoints
@@ -300,7 +294,7 @@ export abstract class AbstractProvider<
   protected route(
     method: PipeMethod,
     path: `/${string}`,
-    handler: ProviderPipeRouteHandler,
+    handler: ProviderPipeRouteHandler
   ) {
     providerPipeRoute(this, method, path, handler);
   }
@@ -311,7 +305,7 @@ export abstract class AbstractProvider<
   protected operatorRoute(
     method: PipeMethod,
     path: `/${string}`,
-    handler: PipeRouteHandler,
+    handler: PipeRouteHandler
   ) {
     pipeOperatorRoute(this.actorInfo.operatorAddr, method, path, handler);
   }
@@ -332,7 +326,7 @@ export abstract class AbstractProvider<
   abstract getDetails(
     agreement: Agreement,
     offer: DetailedOffer,
-    resource: Resource,
+    resource: Resource
   ): Promise<T>;
 
   /**
@@ -344,6 +338,6 @@ export abstract class AbstractProvider<
   abstract delete(
     agreement: Agreement,
     offer: DetailedOffer,
-    resource: Resource,
+    resource: Resource
   ): Promise<void>;
 }
