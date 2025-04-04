@@ -130,7 +130,8 @@ export abstract class AbstractProvider<
     // Initialize pipe for this operator address if it is not instantiated yet.
     if (!pipes[this.actorInfo.operatorAddr]) {
       pipes[this.actorInfo.operatorAddr] = new XMTPv3Pipe(
-        providerConfig.operatorWalletPrivateKey
+        providerConfig.operatorWalletPrivateKey,
+        { revokeOtherInstallations: true }
       );
 
       // Use dev env only for local and sepolia chains
