@@ -2,6 +2,7 @@ import { Agreement, PipeResponseCode } from "@forest-protocols/sdk";
 import {
   BaseMachineTranslationServiceProvider,
   MachineTranslationDetails,
+  TranslationResult,
 } from "./base-provider";
 import { DetailedOffer, Resource } from "@/types";
 
@@ -13,7 +14,7 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
   async checkCallLimit(
     agreement: Agreement,
     resource: Resource,
-    offer: DetailedOffer,
+    offer: DetailedOffer
   ): Promise<boolean> {
     /**
      * TODO: Implement how to check if the user has exceeded the call limit or not.
@@ -24,19 +25,19 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
     if (typeof offer.details == "object") {
       const param = offer.details.params["API Call Limit"];
 
-      // If the param that we are looking for defined as a numerical value
-      if (!Array.isArray(param) && typeof param === "object") {
+      // If the param that we are looking for is defined and it is a numerical value
+      if (param && !Array.isArray(param) && typeof param === "object") {
         return details.API_Call_Count < param.value;
       }
     }
 
-    // If in the Offer details, there is no defined call limit, just use the default one.
+    // If the API call limit is not defined in the Offer details, simply use a default one.
     return details.API_Call_Count < 1000;
   }
 
   async create(
     agreement: Agreement,
-    offer: DetailedOffer,
+    offer: DetailedOffer
   ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the resource will be created.
@@ -55,7 +56,7 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
   async getDetails(
     agreement: Agreement,
     offer: DetailedOffer,
-    resource: Resource,
+    resource: Resource
   ): Promise<MachineTranslationDetails> {
     /**
      * TODO: Implement how the details retrieved from the resource source.
@@ -71,7 +72,7 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
   async delete(
     agreement: Agreement,
     offer: DetailedOffer,
-    resource: Resource,
+    resource: Resource
   ): Promise<void> {
     /**
      * TODO: Implement how the resource will be deleted.
@@ -79,7 +80,7 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
     throw new Error("Method not implemented.");
   }
 
-  async languages(): Promise<[]> {
+  async languages(offer: DetailedOffer): Promise<string[]> {
     /**
      * TODO: Implement the languages logic here.
      * This method should return the list of languages supported by the provider.
@@ -89,22 +90,19 @@ export class MachineTranslationServiceProvider extends BaseMachineTranslationSer
 
   async translate(body: {
     from?: string;
-    to?: string;
-    text?: string;
-  }): Promise<{
-    code: PipeResponseCode;
-    response: { id: number; text: string; from?: string; to: string };
-  }> {
+    to: string;
+    text: string;
+  }): Promise<TranslationResult> {
     /**
      * TODO: Implement the translation logic here.
      */
     throw new Error("Method not implemented.");
   }
 
-  async detect(text: string): Promise<unknown> {
+  async detect(text: string): Promise<string> {
     /**
      * TODO: Implement the detect logic here.
-     * This method should return the detected language of the text.
+     * This method should return the detected language of the given text.
      */
     throw new Error("Method not implemented.");
   }
