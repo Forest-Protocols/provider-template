@@ -105,7 +105,7 @@ export class GatewayProviderImplementation extends BaseExampleServiceProvider {
       );
 
       return {
-        numberResult: result * configuration.size,
+        numberResult: result * (configuration?.size ?? 0),
         stringResult: `According to ${resource.name} by Virtual Provider ${vprov.actor.ownerAddr}, the meaning of the life is ${result}`,
       };
     }
