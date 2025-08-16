@@ -10,6 +10,7 @@ import {
   pipes,
   pipeProviderRoute,
   ProviderPipeRouteHandler,
+  defineProviderRoutesForVirtualProviders,
 } from "@/pipe";
 import { cleanupHandlers } from "@/signal";
 import { DetailedOffer, Resource, ResourceDetails } from "@/types";
@@ -772,6 +773,10 @@ export abstract class AbstractProvider<
 
     // Only update the vPROV when the function reaches out to the end
     this._virtualProviders = newVProvs;
+
+    // Define the existing routes also for the new Virtual Providers
+    // so the requests are coming to those vPROVs will be processed by this class.
+    defineProviderRoutesForVirtualProviders(this);
   }
 
   /**

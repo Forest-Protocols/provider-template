@@ -32,9 +32,19 @@ export const pipes: Record<
 
 /**
  * Provider specific routes.
- * TODO: We don't need this route mapping. We can simply change the path and include the Provider ID e.g. `/providers/1/<path>`. Ah, why I haven't thought of this before?! - mdk
+ * TODO: We don't need this route mapping. We can simply change the path and include the Provider ID e.g. `/providers/1/<path>` so setting of new routes won't override the other one. Ah, why I haven't thought of this before?! - mdk
  */
-const providerRoutes: Record<string, ProviderPipeRouteHandler> = {};
+const providerRoutes: Record<
+  // Key for fast accessing any route information.
+  // It is the combination of "<method>-<provider id>-<path>"
+  string,
+  {
+    providerId: number;
+    method: PipeMethodType;
+    path: `/${string}`;
+    handler: ProviderPipeRouteHandler;
+  }
+> = {};
 
 /**
  * Setups a Pipe route that is specialized for the given Provider. Only the requests
@@ -54,6 +64,8 @@ const providerRoutes: Record<string, ProviderPipeRouteHandler> = {};
  * So as a solution, the routes are defined with this function must include the
  * Provider ID and we store a mapping between Path + Method + Provider Id <-> Route handler
  * so we can know which Provider will process the request.
+ *
+ * `AbstractProvider.route()` method uses this function to define routes.
  */
 export function pipeProviderRoute(
   provider: AbstractProvider,
@@ -61,15 +73,16 @@ export function pipeProviderRoute(
   path: `/${string}`,
   handler: ProviderPipeRouteHandler
 ) {
-  providerRoutes[`${method}-${provider.actor.id}-${path}`] = handler;
+  // Set the route handler for this Provider (if the given Provider ID matches)
+  providerRoutes[`${method}-${provider.actor.id}-${path}`] = {
+    handler,
+    method,
+    path,
+    providerId: provider.actor.id,
+  };
 
-  // If the Provider has Virtual Providers, also add mapping
-  // for all of them. So all the requests that are being
-  // sent to the Virtual Providers will also be processed
-  // by the same handler function.
-  for (const vprovId of provider.virtualProviders) {
-    providerRoutes[`${method}-${vprovId.actor.id}-${path}`] = handler;
-  }
+  // Also define the routes for the Virtual Providers (if there are any)
+  defineProviderRoutesForVirtualProviders(provider);
 
   pipeOperatorRoute(provider.actor.operatorAddr, method, path, async (req) => {
     let providerId: number | undefined;
@@ -98,19 +111,50 @@ export function pipeProviderRoute(
     }
 
     // Search the corresponding handler for the given Provider ID, path and method
-    const providerRouteHandler =
-      providerRoutes[`${method}-${providerId}-${path}`];
+    const route = providerRoutes[`${method}-${providerId}-${path}`];
 
     // Throw error if there is no handler defined in this pipe for the given provider
-    if (!providerRouteHandler) {
+    if (!route) {
       throw new PipeErrorNotFound(`${method} ${req.path}`);
     }
 
-    return await providerRouteHandler({
+    // Run the handler of the route.
+    return await route.handler({
       ...req,
       providerId: providerId!,
     });
   });
+}
+
+/**
+ * Defines the same handler functions of all the routes
+ * for the Virtual Providers of the given Provider.
+ */
+export function defineProviderRoutesForVirtualProviders(
+  provider: AbstractProvider
+) {
+  // The given Provider doesn't have any vPROVs so no need to do anything.
+  if (provider.virtualProviders.length === 0) {
+    return;
+  }
+
+  // Find the routes that are belong to the given Provider
+  const routes = Object.entries(providerRoutes)
+    .filter(([, info]) => info.providerId === provider.actor.id)
+    .map(([, route]) => route);
+
+  // Define same handlers for the Virtual Providers
+  for (const vprov of provider.virtualProviders) {
+    for (const route of routes) {
+      // Handler will remain the same but the key will be different.
+      // This one points to the Virtual Provider.
+      const key = `${route.method}-${vprov.actor.id}-${route.path}`;
+      providerRoutes[key] = {
+        ...route, // Take the info from the original one
+        providerId: vprov.actor.id, // TODO: This might be unnecessary
+      };
+    }
+  }
 }
 
 /**
