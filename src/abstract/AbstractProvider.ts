@@ -1,4 +1,4 @@
-import { rpcClient } from "@/clients";
+import { indexerClient, rpcClient } from "@/clients";
 import { colorHex } from "@/color";
 import { config } from "@/config";
 import { DB } from "@/database/client";
@@ -37,11 +37,24 @@ import {
   generateCID,
   Offer,
   Status,
+  getContractAddressByChain,
+  ForestTokenAddress,
 } from "@forest-protocols/sdk";
 import { yellow } from "ansis";
 import { readFileSync, statSync, writeFileSync } from "fs";
 import { join } from "path";
-import { Account, Address, nonceManager } from "viem";
+import {
+  Account,
+  Address,
+  erc20Abi,
+  getContract,
+  GetContractReturnType,
+  nonceManager,
+  parseEther,
+  PublicClient,
+  WalletClient,
+} from "viem";
+import { sendTransaction } from "viem/actions";
 import { privateKeyToAccount } from "viem/accounts";
 import { z } from "zod";
 
@@ -65,6 +78,14 @@ export abstract class AbstractProvider<
   protocol!: Protocol;
 
   /**
+   * Forest Token client (raw)
+   */
+  tokenContract!: GetContractReturnType<
+    typeof erc20Abi,
+    PublicClient | WalletClient
+  >;
+
+  /**
    * Details of the Provider (parsed from the details file)
    */
   details!: ProviderDetails;
@@ -73,6 +94,11 @@ export abstract class AbstractProvider<
    * Account to perform blockchain interactions
    */
   operatorAccount!: Account;
+
+  /**
+   * Owner account that is parsed from the configuration
+   */
+  ownerAccount!: Account;
 
   /**
    * Provider tag (owner address for Virtual Providers)
@@ -96,11 +122,6 @@ export abstract class AbstractProvider<
   configuration!: ProviderConfig;
 
   /**
-   * Owner address that is parsed from the configuration
-   */
-  ownerAddress!: Address;
-
-  /**
    * Virtual Providers that are registered in
    * this Gateway Provider (if this is a Gateway Provider)
    */
@@ -111,13 +132,15 @@ export abstract class AbstractProvider<
    */
   async init(providerTag: string) {
     this.tag = providerTag;
-    this.configuration = config.providerConfigurations[this.tag];
 
-    if (!this.configuration) {
+    const configuration = config.providerConfigurations[this.tag];
+    if (configuration === undefined) {
       throw new Error(
         `Provider config not found for ${this.logIdentifier()}. Please check your environment variables`
       );
     }
+
+    this.configuration = configuration;
 
     // Setup operator account for blockchain interactions
     this.operatorAccount = privateKeyToAccount(
@@ -126,10 +149,9 @@ export abstract class AbstractProvider<
     );
 
     // Convert private key to account to get owner address
-    const ownerAccount = privateKeyToAccount(
+    this.ownerAccount = privateKeyToAccount(
       this.configuration.PROVIDER_PRIVATE_KEY
     );
-    this.ownerAddress = ownerAccount.address;
 
     // Setup the logger
     this.logger = this.buildLogger();
@@ -386,32 +408,89 @@ export abstract class AbstractProvider<
 
     // Setup routes for the Gateway Provider
     if (isGatewayProvider) {
-      this.operatorRoute(PipeMethods.GET, "/gateway-provider", () =>
-        this.routeHandlerGetInformation()
+      this.operatorRoute(
+        PipeMethods.GET,
+        "/gateway-provider",
+        this.routeHandlerGetInformation.bind(this)
       );
-
-      this.operatorRoute(PipeMethods.POST, "/virtual-providers", (req) =>
-        this.routeHandlerRegisterVirtualProvider(req)
+      this.operatorRoute(
+        PipeMethods.GET,
+        "/gateway-provider-faucet",
+        this.routeHandlerFaucet.bind(this)
       );
-      this.operatorRoute(PipeMethods.POST, "/virtual-providers/offers", (req) =>
-        this.routeHandlerRegisterVirtualProviderOffer(req)
+      this.operatorRoute(
+        PipeMethods.POST,
+        "/virtual-providers",
+        this.routeHandlerRegisterVirtualProvider.bind(this)
+      );
+      this.operatorRoute(
+        PipeMethods.POST,
+        "/virtual-providers/offers",
+        this.routeHandlerRegisterVirtualProviderOffer.bind(this)
       );
       this.operatorRoute(
         PipeMethods.GET,
         "/virtual-provider-configurations",
-        (req) => this.routeHandlerGetVirtualProviderConfigurations(req)
+        this.routeHandlerGetVirtualProviderConfigurations.bind(this)
       );
       this.operatorRoute(
         PipeMethods.PATCH,
         "/virtual-provider-configurations/:offerId",
-        (req) => this.routeHandlerVirtualProviderPatchOfferConfiguration(req)
+        this.routeHandlerVirtualProviderPatchOfferConfiguration.bind(this)
       );
       this.operatorRoute(
         PipeMethods.GET,
         "/virtual-provider-configurations/:offerId",
-        (req) => this.routeHandlerVirtualProviderGetOfferConfiguration(req)
+        this.routeHandlerVirtualProviderGetOfferConfiguration.bind(this)
       );
     }
+  }
+
+  private async routeHandlerFaucet(req: PipeRequest) {
+    const previousRequest = await DB.getLatestFaucetRequest(
+      req.requester as Address
+    );
+
+    if (
+      previousRequest &&
+      Date.now() <=
+        previousRequest.requestedAt.getTime() + config.FAUCET_TIME_WINDOW
+    ) {
+      throw new PipeError(PipeResponseCodes.BAD_REQUEST, {
+        message: "The account already received test tokens",
+      });
+    }
+
+    const [info, protocol] = await Promise.all([
+      indexerClient.getRegistryInfo(),
+      indexerClient.getProtocolByAddress(this.protocol.address),
+    ]);
+    const totalForest =
+      info.actorRegistrationFee +
+      info.actorRegistrationFeeInProtocol +
+      info.offerRegistrationFee +
+      BigInt(protocol.offerRegistrationFee) +
+      BigInt(protocol.providerRegistrationFee);
+    const eth = parseEther(config.FAUCET_ETH_AMOUNT);
+
+    // Send FOREST tokens
+    await this.tokenContract.write.transfer(
+      [req.requester as Address, totalForest],
+      {
+        account: this.ownerAccount,
+        chain: rpcClient.chain,
+      }
+    );
+
+    // Send ETH
+    await sendTransaction(rpcClient, {
+      account: this.ownerAccount,
+      to: req.requester as Address,
+      value: eth,
+    });
+
+    // Save usage of this account
+    await DB.addFaucetUsage(req.requester as Address);
   }
 
   private async routeHandlerGetInformation() {
@@ -419,7 +498,7 @@ export abstract class AbstractProvider<
       code: PipeResponseCodes.OK,
       body: {
         details: this.details,
-        ownerAddress: this.ownerAddress,
+        ownerAddress: this.ownerAccount.address,
         operatorAddress: this.operatorAccount.address,
         isGateway: this.configuration.GATEWAY,
       },
@@ -717,6 +796,22 @@ export abstract class AbstractProvider<
     });
   }
 
+  /**
+   * Setup FOREST token client
+   */
+  private setupTokenClient() {
+    // Initialize raw token client
+    this.tokenContract = getContract({
+      abi: erc20Abi,
+      address:
+        config.TOKEN_ADDRESS ||
+        getContractAddressByChain(config.CHAIN, ForestTokenAddress),
+      client: rpcClient,
+    });
+
+    // TODO: Initialize high level client for FOREST token
+  }
+
   private async reloadVirtualProviders() {
     const newVProvs = new VirtualProvidersArray();
     const vProviders = await DB.getVirtualProvidersByGatewayProviderId(
@@ -788,7 +883,7 @@ export abstract class AbstractProvider<
     this.setupRegistryClient();
 
     this.logger.info("Checking in Network Actor registration");
-    const provider = await this.registry.getActor(this.ownerAddress);
+    const provider = await this.registry.getActor(this.ownerAccount.address);
     if (!provider) {
       throw new Error(
         `${this.logIdentifier()} is not registered in the Network as a Provider. Please register it and try again.`
@@ -811,6 +906,9 @@ export abstract class AbstractProvider<
 
     // Initialize the Protocol client since we need to call some Protocol functions
     await this.setupProtocolClient(this.configuration.PROTOCOL_ADDRESS);
+
+    // Initialize FOREST token client
+    this.setupTokenClient();
 
     // Check if all the detail files of all the Offers of this Provider in the target Protocol are presented
     await this.checkOfferDetailFiles(this.actor.id, this.logIdentifier());
@@ -898,9 +996,11 @@ export abstract class AbstractProvider<
     }
 
     // This function may be called before the fields are set so check their existence
-    if (address || this.ownerAddress || this.actor?.ownerAddr) {
+    if (address || this.ownerAccount?.address || this.actor?.ownerAddr) {
       identifiers.push(
-        `${colorHex(address ?? this.ownerAddress ?? this.actor?.ownerAddr)}`
+        `${colorHex(
+          address ?? this.ownerAccount?.address ?? this.actor?.ownerAddr
+        )}`
       );
     }
     if (id !== undefined || this.actor) {

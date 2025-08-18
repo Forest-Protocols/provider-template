@@ -188,3 +188,9 @@ relations(virtualProviderOfferConfigurations, ({ one }) => ({
     references: [protocolsTable.id],
   }),
 }));
+
+export const faucetUsages = pgTable("faucet_usages", {
+  id: integer().primaryKey().generatedByDefaultAsIdentity(),
+  address: address("address").notNull(),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+});

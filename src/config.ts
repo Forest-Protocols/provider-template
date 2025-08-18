@@ -2,8 +2,6 @@ import { z } from "zod";
 import { red } from "ansis";
 import {
   AddressSchema,
-  ForestRegistryAddress,
-  getContractAddressByChain,
   setGlobalRateLimit,
   setGlobalRateLimitTimeWindow,
 } from "@forest-protocols/sdk";
@@ -15,6 +13,11 @@ import dotenv from "@dotenvx/dotenvx";
 
 function parseEnv() {
   const environmentSchema = z.object({
+    FAUCET_ETH_AMOUNT: z.string().default("0.0001"),
+    FAUCET_TIME_WINDOW: z
+      .string()
+      .default("24h")
+      .transform((value, ctx) => parseTime(value, ctx)),
     DATABASE_URL: nonEmptyStringSchema,
     LOG_LEVEL: z.enum(["error", "warning", "info", "debug"]).default("debug"),
     NODE_ENV: z.enum(["dev", "production"]).default("dev"),
@@ -29,6 +32,7 @@ function parseEnv() {
       .default("1s")
       .transform((value, ctx) => parseTime(value, ctx)),
     REGISTRY_ADDRESS: AddressSchema.optional(),
+    TOKEN_ADDRESS: AddressSchema.optional(),
     INDEXER_ENDPOINT: z.string().url().optional(),
     AGREEMENT_CHECK_INTERVAL: z
       .string()
@@ -174,7 +178,6 @@ const providerConfigurations = parseProviderConfig();
 
 export const config = {
   ...env,
-  registryAddress: getContractAddressByChain(env.CHAIN, ForestRegistryAddress),
 
   /**
    * @deprecated Use "providerConfigurations" instead

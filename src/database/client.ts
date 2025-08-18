@@ -1,4 +1,13 @@
-import { and, eq, getTableColumns, inArray, not, or, sql } from "drizzle-orm";
+import {
+  and,
+  desc,
+  eq,
+  getTableColumns,
+  inArray,
+  not,
+  or,
+  sql,
+} from "drizzle-orm";
 import { drizzle, NodePgDatabase } from "drizzle-orm/node-postgres";
 import { config } from "@/config";
 import { DeploymentStatus, generateCID } from "@forest-protocols/sdk";
@@ -458,6 +467,23 @@ class Database {
           value,
         },
       });
+  }
+
+  async addFaucetUsage(requesterAddress: Address) {
+    await this.client.insert(schema.faucetUsages).values({
+      address: requesterAddress,
+    });
+  }
+
+  async getLatestFaucetRequest(requesterAddress: Address) {
+    const [usage] = await this.client
+      .select()
+      .from(schema.faucetUsages)
+      .where(eq(schema.faucetUsages.address, requesterAddress))
+      .orderBy(desc(schema.faucetUsages.requestedAt));
+
+    // TODO: No need to use type conversion once the tsconfig is done correctly
+    return usage as typeof usage | undefined;
   }
 }
 
