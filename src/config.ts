@@ -13,7 +13,7 @@ import dotenv from "@dotenvx/dotenvx";
 
 function parseEnv() {
   const environmentSchema = z.object({
-    FAUCET_ETH_AMOUNT: z.string().default("0.0001"),
+    FAUCET_ETH_AMOUNT: z.string().default("0.00075"),
     FAUCET_TIME_WINDOW: z
       .string()
       .default("24h")
