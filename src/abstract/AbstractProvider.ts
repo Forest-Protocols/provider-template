@@ -39,6 +39,7 @@ import {
   Status,
   getContractAddressByChain,
   ForestTokenAddress,
+  throttleRequest,
 } from "@forest-protocols/sdk";
 import { yellow } from "ansis";
 import { readFileSync, statSync, writeFileSync } from "fs";
@@ -474,20 +475,24 @@ export abstract class AbstractProvider<
     const eth = parseEther(config.FAUCET_ETH_AMOUNT);
 
     // Send FOREST tokens
-    await this.tokenContract.write.transfer(
-      [req.requester as Address, totalForest],
-      {
-        account: this.ownerAccount,
-        chain: rpcClient.chain,
-      }
+    await throttleRequest(() =>
+      this.tokenContract.write.transfer(
+        [req.requester as Address, totalForest],
+        {
+          account: this.ownerAccount,
+          chain: rpcClient.chain,
+        }
+      )
     );
 
     // Send ETH
-    await sendTransaction(rpcClient, {
-      account: this.ownerAccount,
-      to: req.requester as Address,
-      value: eth,
-    });
+    await throttleRequest(() =>
+      sendTransaction(rpcClient, {
+        account: this.ownerAccount,
+        to: req.requester as Address,
+        value: eth,
+      })
+    );
 
     // Save usage of this account
     await DB.addFaucetUsage(req.requester as Address);
