@@ -1,12 +1,12 @@
 # Best Practices and Tips
 
 This document contains:
-- best practice recommendations for Providers and Protocol Owners to follow and 
+- best practice recommendations for standalone Providers and Protocol Owners to follow and 
 - some tips to assist them in the implementation process.
 
 ## Error Handling
 
-> This section is for **Providers**
+> This section is for standalone **Providers**
 
 For the network-wide actions such as `create()`, `delete()` or `getDetails()`, the errors that are thrown will be caught by the base daemon logic and logged with proper messages in the output to identify the issue. But be careful, that doesn't mean that the function calls will be retried. It only prevents the daemon from crashing. If you need a retry mechanism, you need to implement it by yourself. The daemon expects that those functions will be executed without any issues.
 
@@ -49,6 +49,6 @@ So if the `result` is equal or greater than 50, the User will get a proper error
 
 ## Agreement Balances
 
-> This section is for **Providers**
+> This section is for standalone **Providers**
 
 The base daemon periodically checks the balances of all active Agreements you have with Users. If any Agreement has an insufficient balance, it will be force-closed. Providers can configure the check interval using the `AGREEMENT_CHECK_INTERVAL` environment variable. It’s recommended to set a short interval -such as 15 or 30 minutes- to ensure you don’t continue servicing Agreements that lack a sufficient balance.

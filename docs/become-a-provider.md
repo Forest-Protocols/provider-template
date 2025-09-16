@@ -1,6 +1,6 @@
 # Become a Provider in this Protocol
 
-If you want to start providing services in this Protocol, follow the steps below.
+If you want to start providing services in this Protocol as a standalone Provider (one that runs it's own daemon), follow the steps below.
 
 1. [Register in the Network](#1-register-in-the-network)
 2. [Register in this Protocol](#2-register-in-this-protocol)

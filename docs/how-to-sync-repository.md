@@ -3,7 +3,7 @@
 Once you have completed your implementation, you will need to keep your forked repository up to date with the base repository from which you originally forked.
 
 - If you are a **PTO**, the base repository would be the **Base Provider Template**, created by the Forest Network team.
-- If you are a **PROV**, the base repository would be the one created by the **PTO of the Protocol** you have registered with.
+- If you are a standalone **PROV**, the base repository would be the one created by the **PTO of the Protocol** you have registered with.
 
 ## Why Do I Need to Do This?
 
@@ -60,4 +60,4 @@ git push origin
 
 ### 5. Additional Note for Providers
 
-If you are a **Provider**, you should follow the same steps but use your **base provider template repository address** instead of the one listed in the examples above.
+If you are a standalone **Provider**, you should follow the same steps but use your **base provider template repository address** instead of the one listed in the examples above.
