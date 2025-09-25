@@ -12,7 +12,7 @@ import {
   ProviderPipeRouteHandler,
   defineProviderRoutesForVirtualProviders,
 } from "@/pipe";
-import { cleanupHandlers } from "@/signal";
+import { abortController, cleanupHandlers } from "@/signal";
 import { DetailedOffer, Resource, ResourceDetails } from "@/types";
 import { ensureError } from "@/utils/ensure-error";
 import { ProviderConfig } from "@/validation/provider";
@@ -40,6 +40,9 @@ import {
   getContractAddressByChain,
   ForestTokenAddress,
   throttleRequest,
+  PromiseQueue,
+  safeTransaction,
+  writeContract,
 } from "@forest-protocols/sdk";
 import { yellow } from "ansis";
 import { readFileSync, statSync, writeFileSync } from "fs";
@@ -127,6 +130,11 @@ export abstract class AbstractProvider<
    * this Gateway Provider (if this is a Gateway Provider)
    */
   private _virtualProviders = new VirtualProvidersArray();
+
+  private faucetQueue = new PromiseQueue({
+    concurrency: 1,
+    signal: abortController.signal,
+  });
 
   /**
    * Initializes the Provider.
@@ -448,54 +456,67 @@ export abstract class AbstractProvider<
   }
 
   private async routeHandlerFaucet(req: PipeRequest) {
-    const previousRequest = await DB.getLatestFaucetRequest(
-      req.requester as Address
-    );
+    return await this.faucetQueue.queue({
+      fn: async () => {
+        const previousRequest = await DB.getLatestFaucetRequest(
+          req.requester as Address
+        );
 
-    if (
-      previousRequest &&
-      Date.now() <=
-        previousRequest.requestedAt.getTime() + config.FAUCET_TIME_WINDOW
-    ) {
-      throw new PipeError(PipeResponseCodes.BAD_REQUEST, {
-        message: "The account already received test tokens",
-      });
-    }
-
-    const [info, protocol] = await Promise.all([
-      indexerClient.getRegistryInfo(),
-      indexerClient.getProtocolByAddress(this.protocol.address),
-    ]);
-    const totalForest =
-      info.actorRegistrationFee +
-      info.actorRegistrationFeeInProtocol +
-      info.offerRegistrationFee +
-      BigInt(protocol.offerRegistrationFee) +
-      BigInt(protocol.providerRegistrationFee);
-    const eth = parseEther(config.FAUCET_ETH_AMOUNT);
-
-    // Send FOREST tokens
-    await throttleRequest(() =>
-      this.tokenContract.write.transfer(
-        [req.requester as Address, totalForest],
-        {
-          account: this.ownerAccount,
-          chain: rpcClient.chain,
+        if (
+          previousRequest &&
+          Date.now() <=
+            previousRequest.requestedAt.getTime() + config.FAUCET_TIME_WINDOW
+        ) {
+          throw new PipeError(PipeResponseCodes.BAD_REQUEST, {
+            message: "The account already received test tokens",
+          });
         }
-      )
-    );
 
-    // Send ETH
-    await throttleRequest(() =>
-      sendTransaction(rpcClient, {
-        account: this.ownerAccount,
-        to: req.requester as Address,
-        value: eth,
-      })
-    );
+        const [info, protocol] = await Promise.all([
+          indexerClient.getRegistryInfo(),
+          indexerClient.getProtocolByAddress(this.protocol.address),
+        ]);
+        const totalForest =
+          info.actorRegistrationFee +
+          info.actorRegistrationFeeInProtocol +
+          info.offerRegistrationFee +
+          BigInt(protocol.offerRegistrationFee) +
+          BigInt(protocol.providerRegistrationFee);
+        const eth = parseEther(config.FAUCET_ETH_AMOUNT);
 
-    // Save usage of this account
-    await DB.addFaucetUsage(req.requester as Address);
+        // Send FOREST tokens
+        const { request: forestSendReq } = await throttleRequest(() =>
+          rpcClient.simulateContract({
+            abi: this.tokenContract.abi,
+            address: this.tokenContract.address,
+            functionName: "transfer",
+            account: this.ownerAccount,
+            args: [req.requester as Address, totalForest],
+          })
+        );
+        await writeContract(rpcClient, forestSendReq);
+
+        // Send ETH
+        await safeTransaction(
+          (nonce) =>
+            throttleRequest(() =>
+              sendTransaction(rpcClient, {
+                account: this.ownerAccount,
+                to: req.requester as Address,
+                value: eth,
+                nonce,
+              })
+            ),
+          {
+            client: rpcClient,
+            accountAddress: this.ownerAccount.address,
+          }
+        );
+
+        // Save usage of this account
+        await DB.addFaucetUsage(req.requester as Address);
+      },
+    });
   }
 
   private async routeHandlerGetInformation() {
